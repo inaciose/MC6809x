@@ -1,0 +1,14 @@
+UART      EQU  $A000
+RECEV     EQU  UART+1
+TRANS     EQU  UART+1
+USTAT     EQU  UART
+UCTRL     EQU  UART
+
+BS        EQU  8              ; BACKSPACE
+CR        EQU  $D             ; ENTER KEY
+ESC       EQU  $1B            ; ESCAPE CODE
+SPACE     EQU  $20            ; SPACE (BLANK)
+STKBUF    EQU  58             ; STACK BUFFER ROOM
+LBUFMX    EQU  250            ; MAX NUMBER OF CHARS IN A BASIC LINE
+MAXLIN    EQU  $FA            ; MAXIMUM MS BYTE OF LINE NUMBER
+
