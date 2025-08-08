@@ -1,4 +1,4 @@
-# 1 Searl Grant, the base work, credits to him. 
+# 1 - Searl Grant, the base work, credits to him. 
 MC68B09, 32K RAM, 16K ROM, MC68B50  
 ROM: BASIC (or custom) 
 
@@ -10,7 +10,7 @@ MMAP
 A000 - BFFF : MC68B50 ACIA 8K (we need a better decoding)  
 C000 - FFFF : ROM 16K 
 
-# 2 Jeff Tranter, the same as Searl Grant with other reset circuit. 
+# 2 - Jeff Tranter, the same as Searl Grant with other reset circuit. 
 
 MC68B09, 32K RAM, 16K ROM, MC68B50  
 ROM ASSIST9 + BASIC, etc (or custom)  
@@ -18,7 +18,7 @@ https://jefftranter.blogspot.com/2019/01/a-6809-single-board-computer.html
 https://github.com/jefftranter/6809  
 MMAP is the same as Searl  
 
-# 2 Laurent 
+# 2 - Laurent 
 MC68B09, 32K RAM, 16K ROM, MC68B50, MC6840, MC6821, WD1770, MK4BT12  
 ROM: ASSIST9, flex?  (or custom)  
 https://www.64kforanybody.com/flex1.html  
@@ -34,7 +34,7 @@ E840-EFF7 : NVRAM (MK4BT12) 1976B
 EFF8-EFFF : RTC (MK4BT12) 8B  
 F000-FFFF : ROM 4K  
 
-# 3 jbevren 
+# 3 - jbevren 
 MC6809E, 128K RAM, 8K ROM, MC68681, 74HC244 SDcard  
 FLEX or OS-9 Level I  
 https://jbevren.wordpress.com/2018/09/22/designing-a-6809-sbc/  
@@ -66,7 +66,7 @@ OP7		SDCS		Chip select output to Micro SD
 		NOTE: The 68681 inverts its output port bits  
 
 
-# 4 hackaday 6809-sbc
+# 4 - hackaday 6809-sbc
 MC6809E, 128K RAM, 8K ROM, MC68681, MC6859
 Flex from CF card
 https://hackaday.io/project/176383-6809-sbc
@@ -102,7 +102,7 @@ space. A minimum of 12K of RAM is required for such purposes.
 
 MMAP Flex memory requirements  
 0000-2FFF : RAM 12K required for flex utilities  
-3000-BFFF : available - RAM/IO 8K  
+3000-BFFF : available - RAM/IO 36K  
 C000-DFFF : RAM 8K - required for flex system  
 E000-FFFF : available - RAM/ROM/IO 8K  
 
@@ -118,3 +118,16 @@ RTC72421 RTC
 
 
 https://hackaday.io/project/164305-roscom68k/log/163910-prepping-for-the-mc68901-and-nailing-reliability  
+
+
+Try the Flex memory requirements with W24512 64K sram  
+0000-2FFF : RAM 12K required for flex utilities  
+3000-BFFF : available - RAM/IO 36K  
+C000-DFFF : RAM 8K - required for flex system   
+E000-FFFF : available - RAM/ROM/IO 8K  (first 16 bytes for IO, first 2 for acia)  
+
+Total 56K ram at boot  
+Total 64K ram with ROM page out, may be copied to ram at begin  
+
+Tentar como o hackaday 6809-sbc (4). No boot as escritas na area da ROM vão para a memoria RAM, e as leituras para a ROM. Se se copiar o conteudo da ROM para a RAM, depois pode se fazer o page out da ROM, caso seja necessário, e voltar a fazer o page in quando necessário outra vez.  
+
