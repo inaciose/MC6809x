@@ -1,0 +1,1760 @@
+0001                         *************************************
+0002                         * COPYRIGHT (C) MOTOROLA, INC. 1979 *
+0003                         *************************************
+0004                         
+0005                         *************************************
+0006                         * THIS IS THE BASE ASSIST09 ROM.
+0007                         * IT MAY RUN WITH OR WITHOUT THE
+0008                         * EXTENSION ROM WHICH
+0009                         * WHEN PRESENT WILL BE AUTOMATICALLY
+0010                         * INCORPORATED BY THE BLDVTR
+0011                         * SUBROUTINE.
+0012                         *************************************
+0013                         
+0014                         *********************************************
+0015                         * GLOBAL MODULE EQUATES
+0016                         ********************************************
+0017 f804                    ROMBEG  EQU     $F804           ; ROM START ASSEMBLY ADDRESS, orig: F804
+0018 ffff6800                    RAMOFS  EQU     -$9800          ; ROM OFFSET TO RAM WORK PAGE
+0019                         
+0020 07fc                    ROMSIZ  EQU     2044            ; ROM SIZE, orig: 2048
+0021 f008                    ROM2OF  EQU     ROMBEG-ROMSIZ   ; START OF EXTENSION ROM
+0022 f800                    ACIA    EQU     $F800           ; DEFAULT ACIA ADDRESS
+0023 0000                    PTM     EQU     $0000           ; DEFAULT PTM ADDRESS
+0024 0000                    DFTCHP  EQU     0               ; DEFAULT CHARACTER PAD COUNT
+0025 0005                    DFTNLP  EQU     5               ; DEFAULT NEW LINE PAD COUNT
+0026 003e                    PROMPT  EQU     '>              ; PROMPT CHARACTER
+0027 0008                    NUMBKP  EQU     8               ; NUMBER OF BREAKPOINTS
+0028                         *********************************************
+0029                         
+0030                         *********************************************
+0031                         * MISCELANEOUS EQUATES
+0032                         *********************************************
+0033 0004                    EOT     EQU     $04             ; END OF TRANSMISSION
+0034 0007                    BELL    EQU     $07             ; BELL CHARACTER
+0035 000a                    LF      EQU     $0A             ; LINE FEED
+0036 000d                    CR      EQU     $0D             ; CARRIAGE RETURN
+0037 0010                    DLE     EQU     $10             ; DATA LINK ESCAPE
+0038 0018                    CAN     EQU     $18             ; CANCEL (CTL-X)
+0039                         
+0040                         * PTM ACCESS DEFINITIONS
+0041 0001                    PTMSTA  EQU     PTM+1           ; READ STATUS REGISTER
+0042 0000                    PTMC13  EQU     PTM             ; CONTROL REGISTERS 1 AND 3
+0043 0001                    PTMC2   EQU     PTM+1           ; CONTROL REGISTER 2
+0044 0002                    PTMTM1  EQU     PTM+2           ; LATCH 1
+0045 0004                    PTMTM2  EQU     PTM+4           ; LATCH 2
+0046 0006                    PTMTM3  EQU     PTM+6           ; LATCH 3
+0047 008c                    SKIP2   EQU     $8C             ; "CMPX #" OPCODE - SKIPS TWO BYTES
+0048                         
+0049                         *******************************************
+0050                         * ASSIST09 MONITOR SWI FUNCTIONS
+0051                         * THE FOLLOWING EQUATES DEFINE FUNCTIONS PROVIDED
+0052                         * BY THE ASSIST09 MONITOR VIA THE SWI INSTRUCTION.
+0053                         ******************************************
+0054 0000                    INCHNP  EQU     0               ; INPUT CHAR IN A REG - NO PARITY
+0055 0001                    OUTCH   EQU     1               ; OUTPUT CHAR FROM A REG
+0056 0002                    PDATA1  EQU     2               ; OUTPUT STRING
+0057 0003                    PDATA   EQU     3               ; OUTPUT CR/LF THEN STRING
+0058 0004                    OUT2HS  EQU     4               ; OUTPUT TWO HEX AND SPACE
+0059 0005                    OUT4HS  EQU     5               ; OUTPUT FOUR HEX AND SPACE
+0060 0006                    PCRLF   EQU     6               ; OUTPUT CR/LF
+0061 0007                    SPACE   EQU     7               ; OUTPUT A SPACE
+0062 0008                    MONITR  EQU     8               ; ENTER ASSIST09 MONITOR
+0063 0009                    VCTRSW  EQU     9               ; VECTOR EXAMINE/SWITCH
+0064 000a                    BRKPT   EQU     10              ; USER PROGRAM BREAKPOINT
+0065 000b                    PAUSE   EQU     11              ; TASK PAUSE FUNCTION
+0066 000b                    NUMFUN  EQU     11              ; NUMBER OF AVAILABLE FUNCTIONS
+0067                         
+0068                         * NEXT SUB-CODES FOR ACCESSING THE VECTOR TABLE.
+0069                         * THEY ARE EQUIVALENT TO OFFSETS IN THE TABLE.
+0070                         * RELATIVE POSITIONING MUST BE MAINTAINED
+0071                         
+0072 0000                    .AVTBL  EQU     0               ; ADDRESS OF VECTOR TABLE
+0073 0002                    .CMDL1  EQU     2               ; FIRST COMMAND LIST
+0074 0004                    .RSVD   EQU     4               ; RESERVED HARDWARE VECTOR
+0075 0006                    .SWI3   EQU     6               ; SWI3 ROUTINE
+0076 0008                    .SWI2   EQU     8               ; SWI2 ROUTINE
+0077 000a                    .FIRQ   EQU     10              ; FIRQ ROUTINE
+0078 000c                    .IRQ    EQU     12              ; IRQ ROUTINE
+0079 000e                    .SWI    EQU     14              ; SWI ROUTINE
+0080 0010                    .NMI    EQU     16              ; NMI ROUTINE
+0081 0012                    .RESET  EQU     18              ; RESET ROUTINE
+0082 0014                    .CION   EQU     20              ; CONSOLE ON
+0083 0016                    .CIDTA  EQU     22              ; CONSOLE INPUT DATA
+0084 0018                    .CIOFF  EQU     24              ; CONSOLE INPUT OFF
+0085 001a                    .COON   EQU     26              ; CONSOLE OUTPUT ON
+0086 001c                    .CODTA  EQU     28              ; CONSOLE OUTPUT DATA
+0087 001e                    .COOFF  EQU     30              ; CONSOLE OUTPUT OFF
+0088 0020                    .HSDTA  EQU     32              ; HIGH SPEED PRINTDATA
+0089 0022                    .BSON   EQU     34              ; PUNCH/LOAD ON
+0090 0024                    .BSDTA  EQU     36              ; PUNCH/LOAD DATA
+0091 0026                    .BSOFF  EQU     38              ; PUNCH/LOAD OFF
+0092 0028                    .PAUSE  EQU     40              ; TASK PAUSE ROUTINE
+0093 002a                    .EXPAN  EQU     42              ; EXPRESSION ANALYZER
+0094 002c                    .CMDL2  EQU     44              ; SECOND COMMAND LIST
+0095 002e                    .ACIA   EQU     46              ; ACIA ADDRESS
+0096 0030                    .PAD    EQU     48              ; CHARACTER PAD AND NEW LINE PAD
+0097 0032                    .ECHO   EQU     50              ; ECHO/LOAD AND NULL BKPT FLAG
+0098 0034                    .PTM    EQU     52              ; PTM ADDRESS
+0099 001b                    NUMVTR  EQU     52/2+1          ; NUMBER OF VECTORS
+0100 0034                    HIVTR   EQU     52              ; HIGHEST VECTOR OFFSET
+0101                         
+0102                         ******************************************
+0103                         *           WORK AREA
+0104                         * THIS WORK AREA IS ASSIGNED TO THE PAGE ADDRESSED BY
+0105                         * -$1800,PCR FROM THE BASE ADDRESS OF THE ASSIST09
+0106                         * ROM. THE DIRECT PAGE REGISTER DURING MOST ROUTINE
+0107                         * OPERATIONS WILL POINT TO THIS WORK AREA. THE STACK
+0108                         * INITIALLY STARTS UNDER THE RESERVED WORK AREAS AS
+0109                         * DEFINED HEREIN.
+0110                         ******************************************
+0111 6004                    WORKPG  EQU     ROMBEG+RAMOFS   ; SETUP DIRECT PAGE ADDRESS
+0112                         *       SETDP   =WORKPG         ; NOTIFY ASSEMBLER
+0113 6104                            ORG     WORKPG+256      ; READY PAGE DEFINITIONS
+0114                         
+0115                         * THE FOLLOWING THRU BKPTOP MUST RESIDE IN THIS ORDER
+0116                         * FOR PROPER INITIALIZATION
+0117 6100                            ORG     *-4
+0118 6100                    PAUSER  EQU     *               ; PAUSE ROUTINE
+0119 60ff                            ORG     *-1
+0120 60ff                    SWIBFL  EQU     *               ; BYPASS SWI AS BREAKPOINT FLAG
+0121 60fe                            ORG     *-1
+0122 60fe                    BKPTCT  EQU     *               ; BREAKPOINT COUNT
+0123 60fc                            ORG     *-2             ; SLEVEL EQU
+0124 60fc                    SLEVEL  EQU     *               ; STACK TRACE LEVEL
+0125 60c6                            ORG     -NUMVTR*2+*
+0126 60c6                    VECTAB  EQU     *               ; VECTOR TABLE
+0127 60b6                            ORG     -2*NUMBKP+*
+0128 60b6                    BKPTBL  EQU     *               ; BREAKPOINT TABLE
+0129 60a6                            ORG     -2*NUMBKP+*
+0130 60a6                    BKPTOP  EQU     *               ; BREAKPOINT OPCODE TABLE
+0131 60a4                            ORG     *-2
+0132 60a4                    WINDOW  EQU     *               ; WINDOW
+0133 60a2                            ORG     *-2
+0134 60a2                    ADDR    EQU     *               ; ADDRESS POINTER VALUE
+0135 60a1                            ORG     *-1
+0136 60a1                    BASEPG  EQU     *               ; BASE PAGE VALUE
+0137 609f                            ORG     *-2
+0138 609f                    NUMBER  EQU     *               ; BINARY BUILD AREA
+0139 609d                            ORG     *-2
+0140 609d                    LASTOP  EQU     *               ; LAST OPCODE TRACED
+0141 609b                            ORG     *-2
+0142 609b                    RSTACK  EQU     *               ; RESET STACK POINTER
+0143 6099                            ORG     *-2
+0144 6099                    PSTACK  EQU     *               ; COMMAND RECOVERY STACK
+0145 6097                            ORG     *-2
+0146 6097                    PCNTER  EQU     *               ; LAST PROGRAM COUNTER
+0147 6095                            ORG     *-2
+0148 6095                    TRACEC  EQU     *               ; TRACE COUNT
+0149 6094                            ORG     *-1
+0150 6094                    SWICNT  EQU     *               ; TRACE "SWI" NEST LEVEL COUNT
+0151 6093                            ORG     *-1             ; (MISFLG MUST FOLLOW SWICNT)
+0152 6093                    MISFLG  EQU     *               ; LOAD CMD/THRU BREAKPOINT FLAG
+0153 6092                            ORG     *-1
+0154 6092                    DELIM   EQU     *               ; EXPRESSION DELIMITER/WORK BYTE
+0155 606a                            ORG     *-40
+0156 606a                    ROM2WK  EQU     *               ; EXTENSION ROM RESERVED AREA
+0157 6055                            ORG     *-21
+0158 6055                    TSTACK  EQU     *               ; TEMPORARY STACK HOLD
+0159 6055                    STACK   EQU     *               ; START OF INITIAL STACK
+0160                         
+0161                         * Fill from start of ROM ($C000) to starting location of ROM code
+0162                         *  ($F800) with all ones.
+0163                         
+0164 c000                            ORG     $C000
+0165 c000 ff ff ff ff ff ff          FILL    $FF, ROMBEG-*   ; Fill ROM with FFs until $DB00
+     ff ff ff ff ff ff
+     ff ff ff ff ff ff
+     ff ff ff ff ff ff
+     ff ff ff ff ff ff
+     ff ff ff ff ff ff
+     ff ff ff ff ff ff
+     ff ff ff ff ff ff
+     ff ff ff ff ff ff
+     ff ff ff ff ff ff
+     ff ff ff ff
+0166                         
+0167                         ******************************************
+0168                         * DEFAULT THE ROM BEGINNING ADDRESS TO 'ROMBEG'
+0169                         * ASSIST09 IS POSITION ADDRESS INDEPENDENT, HOWEVER
+0170                         * WE ASSEMBLE ASSUMING CONTROL OF THE HARDWARE VECTORS.
+0171                         * NOTE THAT THE WORK RAM PAGE MUST BE 'RAMOFS'
+0172                         * FROM THE ROM BEGINNING ADDRESS.
+0173                         ********************************************
+0174 f804                            ORG     ROMBEG          ; ROM ASSEMBLY/DEFAULT ADDRESS
+0175                         
+0176                         *****************************************************
+0177                         * BLDVTR - BUILD ASSIST09 VECTOR TABLE
+0178                         * HARDWARE RESET CALLS THIS SUBROUTINE TO BUILD THE
+0179                         * ASSIST09 VECTOR TABLE. THIS SUBROUTINE RESIDES AT
+0180                         * THE FIRST BYTE OF THE ASSIST09 ROM, AND CAN BE
+0181                         * CALLED VIA EXTERNAL CONTROL CODE FOR REMOTE
+0182                         * ASSIST09 EXECUTION.
+0183                         * INPUT: S->VALID STACK RAM
+0184                         * OUTPUT: U->VECTOR TABLE ADDRESS
+0185                         * DPR->ASSIST09 WORK AREA PAGE
+0186                         * THE VECTOR TABLE AND DEFAULTS ARE INITIALIZED
+0187                         * ALL REGISTERS VOLATILE
+0188                         *************************************************
+0189 f804 30 8d 68 be        BLDVTR  LEAX    VECTAB,PCR      ; ADDRESS VECTOR TABLE
+0190 f808 1f 10                      TFR     X,D             ; OBTAIN BASE PAGE ADDRESS
+0191 f80a 1f 8b                      TFR     A,DP            ; SETUP DPR
+0192 f80c 97 a1                      STA     <BASEPG         ; STORE FOR QUICK REFERENCE
+0193 f80e 33 84                      LEAU    ,X              ; RETURN TABLE TO CALLER
+0194 f810 31 8c 35                   LEAY    <INITVT,PCR     ; LOAD FROM ADDR
+0195 f813 ef 81                      STU     ,X++            ; INIT VECTOR TABLE ADDRESS
+0196 f815 c6 16                      LDB     #NUMVTR-5       ; NUMBER RELOCATABLE VECTORS
+0197 f817 34 04                      PSHS    B               ; STORE INDEX ON STACK
+0198 f819 1f 20              BLD2    TFR     Y,D             ; PREPARE ADDRESS RESOLVE
+0199 f81b e3 a1                      ADDD    ,Y++            ; TO ABSOLUTE ADDRESS
+0200 f81d ed 81                      STD     ,X++            ; INTO VECTOR TABLE
+0201 f81f 6a e4                      DEC     ,S              ; COUNT DOWN
+0202 f821 26 f6                      BNE     BLD2            ; BRANCH IF MORE TO INSERT
+0203 f823 c6 0d                      LDB     #INTVE-INTVS    ; STATIC VALUE INIT LENGTH
+0204 f825 a6 a0              BLD3    LDA     ,Y+             ; LOAD NEXT BYTE
+0205 f827 a7 80                      STA     ,X+             ; STORE INTO POSITION
+0206 f829 5a                         DECB                    ; COUNT DOWN
+0207 f82a 26 f9                      BNE     BLD3            ; LOOP UNTIL DONE
+0208 f82c 31 8d f7 d8                LEAY    ROM2OF,PCR      ; TEST POSSIBLE EXTENSION ROM
+0209 f830 8e 20 fe                   LDX     #$20FE          ; LOAD "BRA *" FLAG PATTERN
+0210 f833 ac a1                      CMPX    ,Y++            ; ? EXTENDED ROM HERE
+0211 f835 26 02                      BNE     BLDRTN          ; BRANCH NOT OUR ROM TO RETURN
+0212 f837 ad a4                      JSR     ,Y              ; CALL EXTENDED ROM INITIALIZE
+0213 f839 35 84              BLDRTN  PULS    PC,B            ; RETURN TO INITIALIZER
+0214                         
+0215                         *****************************************************
+0216                         *                RESET ENTRY POINT
+0217                         * HARDWARE RESET ENTERS HERE IF ASSIST09 IS ENABLED
+0218                         * TO RECEIVE THE MC6809 HARDWARE VECTORS. WE CALL
+0219                         * THE BLDVTR SUBROUTINE TO INITIALIZE THE VECTOR
+0220                         * TABLE, STACK, AND THEN FIREUP THE MONITOR VIA SWI
+0221                         * CALL.
+0222                         *******************************************************
+0223 f83b 32 8d 68 16        RESET   LEAS    STACK,PCR       ; SETUP INITIAL STACK
+0224 f83f 8d c3                      BSR     BLDVTR          ; BUILD VECTOR TABLE
+0225 f841 4f                 RESET2  CLRA                    ; ISSUE STARTUP MESSAGE
+0226 f842 1f 8b                      TFR     A,DP            ; DEFAULT TO PAGE ZERO
+0227 f844 3f                         SWI                     ; PERFORM MONITOR FIREUP
+0228 f845 08                         FCB     MONITR          ; TO ENTER COMMAND PROCESSING
+0229 f846 20 f9                      BRA     RESET2          ; REENTER MONITOR IF 'CONTINUE'
+0230                         
+0231                         ******************************************************
+0232                         *        INITVT - INITIAL VECTOR TABLE
+0233                         * THIS TABLE IS RELOCATED TO RAM AND REPRESENTS THE
+0234                         * INITIAL STATE OF THE VECTOR TABLE. ALL ADDRESSES
+0235                         * ARE CONVERTED TO ABSOLUTE FORM. THIS TABLE STARTS
+0236                         * WITH THE SECOND ENTRY, ENDS WITH STATIC CONSTANT
+0237                         * INITIALIZATION DATA WHICH CARRIES BEYOND THE TABLE.
+0238                         ************************************************
+0239 f848 01 54              INITVT  FDB     CMDTBL-*        ; DEFAULT FIRST COMMAND TABLE
+0240 f84a 02 8e                      FDB     RSRVDR-*        ; DEFAULT UNDEFINED HARDWARE VECTOR
+0241 f84c 02 8c                      FDB     SWI3R-*         ; DEFAULT SWI3
+0242 f84e 02 8a                      FDB     SWI2R-*         ; DEFAULT SWI2
+0243 f850 02 6c                      FDB     FIRQR-*         ; DEFAULT FIRQ
+0244 f852 02 86                      FDB     IRQR-*          ; DEFAULT IRQ ROUTINE
+0245 f854 00 45                      FDB     SWIR-*          ; DEFAULT SWI ROUTINE
+0246 f856 02 27                      FDB     NMIR-*          ; DEFAULT NMI ROUTINE
+0247 f858 ff e3                      FDB     RESET-*         ; RESTART VECTOR
+0248 f85a 02 8c                      FDB     CION-*          ; DEFAULT CION
+0249 f85c 02 80                      FDB     CIDTA-*         ; DEFAULT CIDTA
+0250 f85e 02 92                      FDB     CIOFF-*         ; DEFAULT CIOFF
+0251 f860 02 86                      FDB     COON-*          ; DEFAULT COON
+0252 f862 02 8f                      FDB     CODTA-*         ; DEFAULT CODTA
+0253 f864 02 8c                      FDB     COOFF-*         ; DEFAULT COOFF
+0254 f866 03 96                      FDB     HSDTA-*         ; DEFAULT HSDTA
+0255 f868 02 b3                      FDB     BSON-*          ; DEFAULT BSON
+0256 f86a 02 ce                      FDB     BSDTA-*         ; DEFAULT BSDTA
+0257 f86c 02 bb                      FDB     BSOFF-*         ; DEFAULT BSOFF
+0258 f86e 68 92                      FDB     PAUSER-*        ; DEFAULT PAUSE ROUTINE
+0259 f870 04 79                      FDB     EXP1-*          ; DEFAULT EXPRESSION ANALYZER
+0260 f872 01 29                      FDB     CMDTB2-*        ; DEFAULT SECOND COMMAND TABLE
+0261                         * CONSTANTS
+0262 f874 f8 00              INTVS   FDB     ACIA            ; DEFAULT ACIA
+0263 f876 00 05                      FCB     DFTCHP,DFTNLP   ; DEFAULT NULL PADDS
+0264 f878 00 00                      FDB     0               ; DEFAULT ECHO
+0265 f87a 00 00                      FDB     PTM             ; DEFAULT PTM
+0266 f87c 00 00                      FDB     0               ; INITIAL STACK TRACE LEVEL
+0267 f87e 00                         FCB     0               ; INITIAL BREAKPOINT COUNT
+0268 f87f 00                         FCB     0               ; SWI BREAKPOINT LEVEL
+0269 f880 39                         FCB     $39             ; DEFAULT PAUSE ROUTINE (RTS)
+0270 f881                    INTVE   EQU     *
+0271                         *B
+0272                         ***********************************************
+0273                         *            ASSIST09 SWI HANDLER
+0274                         * THE SWI HANDLER PROVIDES ALL INTERFACING NECESSARY
+0275                         * FOR A USER PROGRAM. A FUNCTION BYTE IS ASSUMED TO
+0276                         * FOLLOW THE SWI INSTRUCTION. IT IS BOUND CHECKED
+0277                         * AND THE PROPER ROUTINE IS GIVEN CONTROL. THIS
+0278                         * INVOCATION MAY ALSO BE A BREAKPOINT INTERRUPT.
+0279                         * IF SO, THE BREAKPOINT HANDLER IS ENTERED.
+0280                         * INPUT: MACHINE STATE DEFINED FOR SWI
+0281                         * OUTPUT: VARIES ACCORDING TO FUNCTION CALLED. PC ON
+0282                         * CALLERS STACK INCREMENTED BY ONE IF VALID CALL.
+0283                         * VOLATILE REGISTERS: SEE FUNCTIONS CALLED
+0284                         * STATE: RUNS DISABLED UNLESS FUNCTION CLEARS I FLAG.
+0285                         ************************************************
+0286                         * SWI FUNCTION VECTOR TABLE
+0287 f881 01 90              SWIVTB  FDB     ZINCH-SWIVTB    ; INCHNP
+0288 f883 01 ad                      FDB     ZOTCH1-SWIVTB   ; OUTCH
+0289 f885 01 c7                      FDB     ZPDTA1-SWIVTB   ; PDATA1
+0290 f887 01 bf                      FDB     ZPDATA-SWIVTB   ; PDATA
+0291 f889 01 71                      FDB     ZOT2HS-SWIVTB   ; OUT2HS
+0292 f88b 01 6f                      FDB     ZOT4HS-SWIVTB   ; OUT4HS
+0293 f88d 01 bc                      FDB     ZPCRLF-SWIVTB   ; PCRLF
+0294 f88f 01 75                      FDB     ZSPACE-SWIVTB   ; SPACE
+0295 f891 00 51                      FDB     ZMONTR-SWIVTB   ; MONITR
+0296 f893 01 79                      FDB     ZVSWTH-SWIVTB   ; VCTRSW
+0297 f895 02 52                      FDB     ZBKPNT-SWIVTB   ; BREAKPOINT
+0298 f897 01 cd                      FDB     ZPAUSE-SWIVTB   ; TASK PAUSE
+0299                         
+0300 f899 6a 8d 67 f7        SWIR    DEC     SWICNT,PCR      ; UP "SWI" LEVEL FOR TRACE
+0301 f89d 17 02 21                   LBSR    LDDP            ; SETUP PAGE AND VERIFY STACK
+0302                         * CHECK FOR BREAKPOINT TRAP
+0303 f8a0 ee 6a                      LDU     10,S            ; LOAD PROGRAM COUNTER
+0304 f8a2 33 5f                      LEAU    -1,U            ; BACK TO SWI ADDRESS
+0305 f8a4 0d ff                      TST     <SWIBFL         ; ? THIS "SWI" BREAKPOINT
+0306 f8a6 26 11                      BNE     SWIDNE          ; BRANCH IF SO TO LET THROUGH
+0307 f8a8 17 06 97                   LBSR    CBKLDR          ; OBTAIN BREAKPOINT POINTERS
+0308 f8ab 50                         NEGB                    ; OBTAIN POSITIVE COUNT
+0309 f8ac 5a                 SWILP   DECB                    ; COUNT DOWN
+0310 f8ad 2b 0a                      BMI     SWIDNE          ; BRANCH WHEN DONE
+0311 f8af 11 a3 a1                   CMPU    ,Y++            ; ? WAS THIS A BREAKPOINT
+0312 f8b2 26 f8                      BNE     SWILP           ; BRANCH IF NOT
+0313 f8b4 ef 6a                      STU     10,S            ; SET PROGRAM COUNTER BACK
+0314 f8b6 16 02 1a                   LBRA    ZBKPNT          ; GO DO BREAKPOINT
+0315 f8b9 0f ff              SWIDNE  CLR     <SWIBFL         ; CLEAR IN CASE SET
+0316 f8bb 37 06                      PULU    D               ; OBTAIN FUNCTION BYTE, UP PC
+0317 f8bd c1 0b                      CMPB    #NUMFUN         ; ? TOO HIGH
+0318 f8bf 10 22 02 0b                LBHI    ERROR           ; YES, DO BREAKPOINT
+0319 f8c3 ef 6a                      STU     10,S            ; BUMP PROGRAM COUNTER PAST SWI
+0320 f8c5 58                         ASLB                    ; FUNCTION CODE TIMES TWO
+0321 f8c6 33 8c b8                   LEAU    SWIVTB,PCR      ; OBTAIN VECTOR BRANCH ADDRESS
+0322 f8c9 ec c5                      LDD     B,U             ; LOAD OFFSET
+0323 f8cb 6e cb                      JMP     D,U             ; JUMP TO ROUTINE
+0324                         
+0325                         **********************************************
+0326                         * REGISTERS TO FUNCTION ROUTINES:
+0327                         *  DP-> WORK AREA PAGE
+0328                         *  D,Y,U=UNRELIABLE           X=AS CALLED FROM USER
+0329                         *  S=AS FROM SWI INTERRUPT
+0330                         *********************************************
+0331                         
+0332                         **************************************************
+0333                         *            [SWI FUNCTION 8]
+0334                         *              MONITOR ENTRY
+0335                         *  FIREUP THE ASSIST09 MONITOR.
+0336                         *  THE STACK WITH ITS VALUES FOR THE DIRECT PAGE
+0337                         *  REGISTER AND CONDITION CODE FLAGS ARE USED AS IS.
+0338                         *   1) INITIALIZE CONSOLE I/O
+0339                         *   2) OPTIONALLY PRINT SIGNON
+0340                         *   3) INITIALIZE PTM FOR SINGLE STEPPING
+0341                         *   4) ENTER COMMAND PROCESSOR
+0342                         * INPUT: A=0 INIT CONSOLE AND PRINT STARTUP MESSAGE
+0343                         *        A#0 OMIT CONSOLE INIT AND STARTUP MESSAGE
+0344                         *************************************************
+0345                         
+0346 f8cd 41 53 54 39        SIGNON  FCC     /AST9/      ; SIGNON EYE-CATCHER
+0347 f8d1 04                         FCB     EOT
+0348 f8d2 10 df 9b           ZMONTR  STS     <RSTACK         ; SAVE FOR BAD STACK RECOVERY
+0349 f8d5 6d 61                      TST     1,S             ; ? INIT CONSOLE AND SEND MSG
+0350 f8d7 26 0d                      BNE     ZMONT2          ; BRANCH IF NOT
+0351 f8d9 ad 9d 67 fd                JSR     [VECTAB+.CION,PCR] ; READY CONSOLE INPUT
+0352 f8dd ad 9d 67 ff                JSR     [VECTAB+.COON,PCR] ; READY CONSOLE OUTPUT
+0353 f8e1 30 8c e9                   LEAX    SIGNON,PCR         ; READY SIGNON EYE-CATCHER
+0354 f8e4 3f                         SWI                     ; PERFORM
+0355 f8e5 03                         FCB     PDATA           ; PRINT STRING
+0356 f8e6 9e fa              ZMONT2  LDX     <VECTAB+.PTM    ; LOAD PTM ADDRESS
+0357 f8e8 27 0d                      BEQ     CMD             ; BRANCH IF NOT TO USE A PTM
+0358 f8ea 6f 02                      CLR     PTMTM1-PTM,X    ; SET LATCH TO CLEAR RESET
+0359 f8ec 6f 03                      CLR     PTMTM1+1-PTM,X  ; AND SET GATE HIGH
+0360 f8ee cc 01 a6                   LDD     #$01A6          ; SETUP TIMER 1 MODE
+0361 f8f1 a7 01                      STA     PTMC2-PTM,X     ; SETUP FOR CONTROL REGISTER1
+0362 f8f3 e7 84                      STB     PTMC13-PTM,X    ; SET OUTPUT ENABLED/
+0363                         * SINGLE SHOT/ DUAL 8 BIT/INTERNAL MODE/OPERATE
+0364 f8f5 6f 01                      CLR     PTMC2-PTM,X     ; SET CR2 BACK TO RESET FORM
+0365                         * FALL INTO COMMAND PROCESSOR
+0366                         
+0367                         ***************************************************
+0368                         *          COMMAND HANDLER
+0369                         *  BREAKPOINTS ARE REMOVED AT THIS TIME.
+0370                         *  PROMPT FOR A COMMAND, AND STORE ALL CHARACTERS
+0371                         *  UNTIL A SEPARATOR ON THE STACK.
+0372                         *  SEARCH FOR FIRST MATCHING COMMAND SUBSET,
+0373                         *  CALL IT OR GIVE '?' RESPONSE.
+0374                         *  DURING COMMAND SEARCH:
+0375                         *      B=OFFSET TO NEXT ENTRY ON X
+0376                         *      U=SAVED S
+0377                         *      U-1=ENTRY SIZE+2
+0378                         *      U-2=VALID NUMBER FLAG (>=0 VALID)/COMPARE CNT
+0379                         *      U-3=CARRIAGE RETURN FLAG (0=CR HAS BEEN DONE)
+0380                         *      U-4=START OF COMMAND STORE
+0381                         *      S+0=END OF COMMAND STORE
+0382                         ***********************************************
+0383                         
+0384 f8f7 3f                 CMD     SWI                     ; TO NEW LINE
+0385 f8f8 06                         FCB     PCRLF           ; FUNCTION
+0386                         * DISARM THE BREAKPOINTS
+0387 f8f9 17 06 46           CMDNEP  LBSR    CBKLDR          ; OBTAIN BREAKPOINT POINTERS
+0388 f8fc 2a 0c                      BPL     CMDNOL          ; BRANCH IF NOT ARMED OR NONE
+0389 f8fe 50                         NEGB                    ; MAKE POSITIVE
+0390 f8ff d7 fe                      STB     <BKPTCT         ; FLAG AS DISARMED
+0391 f901 5a                 CMDDDL  DECB                    ; ? FINISHED
+0392 f902 2b 06                      BMI     CMDNOL          ; BRANCH IF SO
+0393 f904 a6 30                      LDA     -NUMBKP*2,Y     ; LOAD OPCODE STORED
+0394 f906 a7 b1                      STA     [,Y++]          ; STORE BACK OVER "SWI"
+0395 f908 20 f7                      BRA     CMDDDL          ; LOOP UNTIL DONE
+0396 f90a ae 6a              CMDNOL  LDX     10,S            ; LOAD USERS PROGRAM COUNTER
+0397 f90c 9f 97                      STX     <PCNTER         ; SAVE FOR EXPRESSION ANALYZER
+0398 f90e 86 3e                      LDA     #PROMPT         ; LOAD PROMPT CHARACTER
+0399 f910 3f                         SWI                     ; SEND TO OUTPUT HANDLER
+0400 f911 01                         FCB     OUTCH           ; FUNCTION
+0401 f912 33 e4                      LEAU    ,S              ; REMEMBER STACK RESTORE ADDRESS
+0402 f914 df 99                      STU     <PSTACK         ; REMEMBER STACK FOR ERROR USE
+0403 f916 4f                         CLRA                    ; PREPARE ZERO
+0404 f917 5f                         CLRB                    ; PREPARE ZERO
+0405 f918 dd 9f                      STD     <NUMBER         ; CLEAR NUMBER BUILD AREA
+0406 f91a dd 93                      STD     <MISFLG         ; CLEAR MISCEL. AND SWICNT FLAGS
+0407 f91c dd 95                      STD     <TRACEC         ; CLEAR TRACE COUNT
+0408 f91e c6 02                      LDB     #2              ; SET D TO TWO
+0409 f920 34 07                      PSHS    D,CC            ; PLACE DEFAULTS ONTO STACK
+0410                         * CHECK FOR "QUICK" COMMANDS.
+0411 f922 17 04 54                   LBSR    READ            ; OBTAIN FIRST CHARACTER
+0412 f925 30 8d 05 81                LEAX    CDOT+2,PCR      ; PRESET FOR SINGLE TRACE
+0413 f929 81 2e                      CMPA    #'.             ; ? QUICK TRACE
+0414 f92b 27 5a                      BEQ     CMDXQT          ; BRANCH EQUAL FOR TRACE ONE
+0415 f92d 30 8d 04 e9                LEAX    CMPADP+2,PCR    ; READY MEMORY ENTRY POINT
+0416 f931 81 2f                      CMPA    #'/             ; ? OPEN LAST USED MEMORY
+0417 f933 27 52                      BEQ     CMDXQT          ; BRANCH TO DO IT IF SO
+0418                         * PROCESS NEXT CHARACTER
+0419 f935 81 20              CMD2    CMPA    #'              ; ? BLANK OR DELIMITER
+0420 f937 23 14                      BLS    CMDGOT           ; BRANCH YES, WE HAVE IT
+0421 f939 34 02                      PSHS   A                ; BUILD ONTO STACK
+0422 f93b 6c 5f                      INC    -1,U             ; COUNT THIS CHARACTER
+0423 f93d 81 2f                      CMPA   #'/              ; ? MEMORY COMMAND
+0424 f93f 27 4f                      BEQ    CMDMEM           ; BRANCH IF SO
+0425 f941 17 04 0b                   LBSR   BLDHXC           ; TREAT AS HEX VALUE
+0426 f944 27 02                      BEQ    CMD3             ; BRANCH IF STILL VALID NUMBER
+0427 f946 6a 5e                      DEC    -2,U             ; FLAG AS INVALID NUMBER
+0428 f948 17 04 2e           CMD3    LBSR   READ             ; OBTAIN NEXT CHARACTER
+0429 f94b 20 e8                      BRA    CMD2             ; TEST NEXT CHARACTER
+0430                         * GOT COMMAND, NOW SEARCH TABLES
+0431 f94d 80 0d              CMDGOT  SUBA   #CR              ; SET ZERO IF CARRIAGE RETURN
+0432 f94f a7 5d                      STA    -3,U             ; SETUP FLAG
+0433 f951 9e c8                      LDX    <VECTAB+.CMDL1   ; START WITH FIRST CMD LIST
+0434 f953 e6 80              CMDSCH  LDB    ,X+              ; LOAD ENTRY LENGTH
+0435 f955 2a 10                      BPL    CMDSME           ; BRANCH IF NOT LIST END
+0436 f957 9e f2                      LDX    <VECTAB+.CMDL2   ; NOW TO SECOND CMD LITS
+0437 f959 5c                         INCB                    ; ? TO CONTINUE TO DEFAULT LIST
+0438 f95a 27 f7                      BEQ     CMDSCH          ; BRANCH IF SO
+0439 f95c 10 de 99           CMDBAD  LDS     <PSTACK         ; RESTORE STACK
+0440 f95f 30 8d 01 5a                LEAX    ERRMSG,PCR      ; POINT TO ERROR STRING
+0441 f963 3f                         SWI                     ; SEND OUT
+0442 f964 02                         FCB     PDATA1          ; TO CONSOLE
+0443 f965 20 90                      BRA     CMD             ; AND TRY AGAIN
+0444                         * SEARCH NEXT ENTRY
+0445 f967 5a                 CMDSME  DECB                    ; TAKE ACCOUNT OF LENGTH BYTE
+0446 f968 e1 5f                      CMPB    -1,U            ; ? ENTERED LONGER THAN ENTRY
+0447 f96a 24 03                      BHS     CMDSIZ          ; BRANCH IF NOT TOO LONG
+0448 f96c 3a                 CMDFLS  ABX                     ; SKIP TO NEXT ENTRY
+0449 f96d 20 e4                      BRA     CMDSCH          ; AND TRY NEXT
+0450 f96f 31 5d              CMDSIZ  LEAY    -3,U            ; PREPARE TO COMPARE
+0451 f971 a6 5f                      LDA     -1,U            ; LOAD SIZE+2
+0452 f973 80 02                      SUBA    #2              ; TO ACTUAL SIZE ENTERED
+0453 f975 a7 5e                      STA     -2,U            ; SAVE SIZE FOR COUNTDOWN
+0454 f977 5a                 CMDCMP  DECB                    ; DOWN ONE BYTE
+0455 f978 a6 80                      LDA     ,X+             ; NEXT COMMAND CHARACTER
+0456 f97a a1 a2                      CMPA    ,-Y             ; ? SAME AS THAT ENTERED
+0457 f97c 26 ee                      BNE     CMDFLS          ; BRANCH TO FLUSH IF NOT
+0458 f97e 6a 5e                      DEC     -2,U            ; COUNT DOWN LENGTH OF ENTRY
+0459 f980 26 f5                      BNE     CMDCMP          ; BRANCH IF MORE TO TEST
+0460 f982 3a                         ABX                     ; TO NEXT ENTRY
+0461 f983 ec 1e                      LDD     -2,X            ; LOAD OFFSET
+0462 f985 30 8b                      LEAX    D,X             ; COMPUTE ROUTINE ADDRESS+2
+0463 f987 6d 5d              CMDXQT  TST     -3,U            ; SET CC FOR CARRIAGE RETURN TEST
+0464 f989 32 c4                      LEAS    ,U              ; DELETE STACK WORK AREA
+0465 f98b ad 1e                      JSR     -2,X            ; CALL COMMAND
+0466 f98d 16 ff 7a                   LBRA    CMDNOL          ; GO GET NEXT COMMAND
+0467 f990 6d 5e              CMDMEM  TST     -2,U            ; ? VALID HEX NUMBER ENTERED
+0468 f992 2b c8                      BMI     CMDBAD          ; BRANCH ERROR IF NOT
+0469 f994 30 88 ae                   LEAX    <CMEMN-CMPADP,X ; TO DIFFERENT ENTRY
+0470 f997 dc 9f                      LDD     <NUMBER         ; LOAD NUMBER ENTERED
+0471 f999 20 ec                      BRA     CMDXQT          ; AND ENTER MEMORY COMMAND
+0472                         
+0473                         ** COMMANDS ARE ENTERED AS A SUBROUTINE WITH:
+0474                         **    DPR->ASSIST09 DIRECT PAGE WORK AREA
+0475                         **    Z=1 CARRIAGE RETURN ENTERED
+0476                         **    Z=0 NON CARRIAGE RETURN DELIMITER
+0477                         **    S=NORMAL RETURN ADDRESS
+0478                         ** THE LABEL "CMDBAD" MAY BE ENTERED TO ISSUE AN
+0479                         ** AN ERROR FLAG (*).
+0480                         **************************************************
+0481                         *       ASSIST09 COMMAND TABLES
+0482                         * THESE ARE THE DEFAULT COMMAND TABLES. EXTERNAL
+0483                         * TABLES OF THE SAME FORMAT MAY EXTEND/REPLACE
+0484                         * THESE BY USING THE VECTOR SWAP FUNCTION.
+0485                         *
+0486                         * ENTRY FORMAT:
+0487                         *    +0...TOTAL SIZE OF ENTRY (INCLUDING THIS BYTE)
+0488                         *    +1...COMMAND STRING
+0489                         *    +N...TWO BYTE OFFSET TO COMMAND (ENTRYADDR-*)
+0490                         *
+0491                         * THE TABLES TERMINATE WITH A ONE BYTE -1 OR -2.
+0492                         * THE -1 CONTINUES THE COMMAND SEARCH WITH THE
+0493                         *        SECOND COMMAND TABLE.
+0494                         * THE -2 TERMINATES COMMAND SEARCHES.
+0495                         *****************************************************
+0496                         
+0497                         * THIS IS THE DEFAULT LIST FOR THE SECOND COMMAND
+0498                         * LIST ENTRY.
+0499                         
+0500 f99b fe                 CMDTB2  FCB     -2              ; STOP COMMAND SEARCHES
+0501                         
+0502                         * THIS IS THE DEFAULT LIST FOR THE FIRST COMMAND
+0503                         * LIST ENTRY.
+0504                         
+0505 f99c                    CMDTBL  EQU     *               ; MONITOR COMMAND TABLE
+0506 f99c 04                         FCB     4
+0507 f99d 42                         FCC     /B/             ; 'BREAKPOINT' COMMAND
+0508 f99e 05 4d                      FDB     CBKPT-*
+0509 f9a0 04                         FCB     4
+0510 f9a1 43                         FCC     /C/             ; 'CALL' COMMAND
+0511 f9a2 04 17                      FDB     CCALL-*
+0512 f9a4 04                         FCB     4
+0513 f9a5 44                         FCC     /D/             ; 'DISPLAY' COMMAND
+0514 f9a6 04 9d                      FDB     CDISP-*
+0515 f9a8 04                         FCB     4
+0516 f9a9 45                         FCC     /E/             ; 'ENCODE' COMMAND
+0517 f9aa 05 9f                      FDB     CENCDE-*
+0518 f9ac 04                         FCB     4
+0519 f9ad 47                         FCC     /G/             ; 'GO' COMMAND
+0520 f9ae 03 d2                      FDB     CGO-*
+0521 f9b0 04                         FCB     4
+0522 f9b1 4c                         FCC     /L/             ; 'LOAD' COMMAND
+0523 f9b2 04 dd                      FDB     CLOAD-*
+0524 f9b4 04                         FCB     4
+0525 f9b5 4d                         FCC     /M/             ; 'MEMORY' COMMAND
+0526 f9b6 04 0d                      FDB     CMEM-*
+0527 f9b8 04                         FCB     4
+0528 f9b9 4e                         FCC     /N/             ; 'NULLS' COMMAND
+0529 f9ba 04 fd                      FDB     CNULLS-*
+0530 f9bc 04                         FCB     4
+0531 f9bd 4f                         FCC     /O/             ; 'OFFSET' COMMAND
+0532 f9be 05 0a                      FDB     COFFS-*
+0533 f9c0 04                         FCB     4
+0534 f9c1 50                         FCC     /P/             ; 'PUNCH' COMMAND
+0535 f9c2 04 af                      FDB     CPUNCH-*
+0536 f9c4 04                         FCB     4
+0537 f9c5 52                         FCC     /R/             ; 'REGISTERS' COMMAND
+0538 f9c6 02 84                      FDB     CREG-*
+0539 f9c8 04                         FCB     4
+0540 f9c9 53                         FCC     /S/             ; 'STLEVEL' COMMAND
+0541 f9ca 04 f2                      FDB     CSTLEV-*
+0542 f9cc 04                         FCB     4
+0543 f9cd 54                         FCC     /T/             ; 'TRACE' COMMAND
+0544 f9ce 04 d6                      FDB     CTRACE-*
+0545 f9d0 04                         FCB     4
+0546 f9d1 56                         FCC     /V/             ; 'VERIFY' COMMAND
+0547 f9d2 04 cf                      FDB     CVER-*
+0548 f9d4 04                         FCB     4
+0549 f9d5 57                         FCC     /W/             ; 'WINDOW' COMMAND
+0550 f9d6 04 68                      FDB     CWINDO-*
+0551 f9d8 ff                         FCB     -1              ; END, CONTINUE WITH THE SECOND
+0552                         
+0553                         *************************************************
+0554                         *             [SWI FUNCTIONS 4 AND 5]
+0555                         *      4 - OUT2HS - DECODE BYTE TO HEX AND ADD SPACE
+0556                         *      5 - OUT4HS - DECODE WORD TO HEX AND ADD SPACE
+0557                         * INPUT: X->BYTE OR WORD TO DECODE
+0558                         * OUTPUT: CHARACTERS SENT TO OUTPUT HANDLER
+0559                         *         X->NEXT BYTE OR WORD
+0560                         *************************************************
+0561 f9d9 a6 80              ZOUT2H  LDA     ,X+             ; LOAD NEXT BYTE
+0562 f9db 34 06                      PSHS    D               ; SAVE - DO NOT REREAD
+0563 f9dd c6 10                      LDB     #16             ; SHIFT BY 4 BITS
+0564 f9df 3d                         MUL                     ; WITH MULTIPLY
+0565 f9e0 8d 04                      BSR     ZOUTHX          ; SEND OUT AS HEX
+0566 f9e2 35 06                      PULS    D               ; RESTORE BYTES
+0567 f9e4 84 0f                      ANDA    #$0F            ; ISOLATE RIGHT HEX
+0568 f9e6 8b 90              ZOUTHX  ADDA    #$90            ; PREPARE A-F ADJUST
+0569 f9e8 19                         DAA                     ; ADJUST
+0570 f9e9 89 40                      ADCA    #$40            ; PREPARE CHARACTER BITS
+0571 f9eb 19                         DAA                     ; ADJUST
+0572 f9ec 6e 9d 66 f2        SEND    JMP     [VECTAB+.CODTA,PCR] ; SEND TO OUT HANDLER
+0573                         
+0574 f9f0 8d e7              ZOT4HS  BSR     ZOUT2H          ; CONVERT FIRST BYTE
+0575 f9f2 8d e5              ZOT2HS  BSR     ZOUT2H          ; CONVERT BYTE TO HEX
+0576 f9f4 af 64                      STX     4,S             ; UPDATE USERS X REGISTER
+0577                         * FALL INTO SPACE ROUTINE
+0578                         
+0579                         *************************************************
+0580                         *            [SWI FUNCTION 7]
+0581                         *         SPACE - SEND BLANK TO OUTPUT HANDLER
+0582                         * INPUT: NONE
+0583                         * OUTPUT: BLANK SEND TO CONSOLE HANDLER
+0584                         *************************************************
+0585 f9f6 86 20              ZSPACE  LDA     #'              ; LOAD BLANK
+0586 f9f8 20 3d                      BRA     ZOTCH2          ; SEND AND RETURN
+0587                         
+0588                         ***********************************************
+0589                         *             [SWI FUNCTION 9]
+0590                         *          SWAP VECTOR TABLE ENTRY
+0591                         * INPUT: A=VECTOR TABLE CODE (OFFSET)
+0592                         * X=0 OR REPLACEMENT VALUE
+0593                         * OUTPUT: X=PREVIOUS VALUE
+0594                         ***********************************************
+0595 f9fa a6 61              ZVSWTH  LDA     1,S             ; LOAD REQUESTERS A
+0596 f9fc 81 34                      CMPA    #HIVTR          ; ? SUB-CODE TOO HIGH
+0597 f9fe 22 39                      BHI     ZOTCH3          ; IGNORE CALL IF SO
+0598 fa00 10 9e c6                   LDY     <VECTAB+.AVTBL  ; LOAD VECTOR TABLE ADDRESS
+0599 fa03 ee a6                      LDU     A,Y             ; U=OLD ENTRY
+0600 fa05 ef 64                      STU     4,S             ; RETURN OLD VALUE TO CALLERS X
+0601 fa07 af 7e                      STX     -2,S            ; ? X=0
+0602 fa09 27 2e                      BEQ     ZOTCH3          ; YES, DO NOT CHANGE ENTRY
+0603 fa0b af a6                      STX     A,Y             ; REPLACE ENTRY
+0604 fa0d 20 2a                      BRA     ZOTCH3          ; RETURN FROM SWI
+0605                         *D
+0606                         
+0607                         ************************************************
+0608                         *               [SWI FUNCTION 0]
+0609                         *  INCHNP - OBTAIN INPUT CHAR IN A (NO PARITY)
+0610                         * NULLS AND RUBOUTS ARE IGNORED.
+0611                         * AUTOMATIC LINE FEED IS SENT UPON RECEIVING A
+0612                         * CARRIAGE RETURN.
+0613                         * UNLESS WE ARE LOADING FROM TAPE.
+0614                         ************************************************
+0615 fa0f 8d 5d              ZINCHP  BSR     XQPAUS          ; RELEASE PROCESSOR
+0616 fa11 8d 5f              ZINCH   BSR     XQCIDT          ; CALL INPUT DATA APPENDAGE
+0617 fa13 24 fa                      BCC     ZINCHP          ; LOOP IF NONE AVAILABLE
+0618 fa15 4d                         TSTA                    ; ? TEST FOR NULL
+0619 fa16 27 f9                      BEQ     ZINCH           ; IGNORE NULL
+0620 fa18 81 7f                      CMPA    #$7F            ; ? RUBOUT
+0621 fa1a 27 f5                      BEQ     ZINCH           ; BRANCH YES TO IGNORE
+0622 fa1c a7 61                      STA     1,S             ; STORE INTO CALLERS A
+0623 fa1e 0d 93                      TST     <MISFLG         ; ? LOAD IN PROGRESS
+0624 fa20 26 17                      BNE     ZOTCH3          ; BRANCH IF SO TO NOT ECHO
+0625 fa22 81 0d                      CMPA    #CR             ; ? CARRIAGE RETURN
+0626 fa24 26 04                      BNE     ZIN2            ; NO, TEST ECHO BYTE
+0627 fa26 86 0a                      LDA     #LF             ; LOAD LINE FEED
+0628 fa28 8d c2                      BSR     SEND            ; ALWAYS ECHO LINE FEED
+0629 fa2a 0d f8              ZIN2    TST     <VECTAB+.ECHO   ; ? ECHO DESIRED
+0630 fa2c 26 0b                      BNE     ZOTCH3          ; NO, RETURN
+0631                         * FALL THROUGH TO OUTCH
+0632                         ************************************************
+0633                         *            [SWI FUNCTION 1]
+0634                         *        OUTCH - OUTPUT CHARACTER FROM A
+0635                         * INPUT: NONE
+0636                         * OUTPUT: IF LINEFEED IS THE OUTPUT CHARACTER THEN
+0637                         * C=0 NO CTL-X RECEIVED, C=1 CTL-X RECEIVED
+0638                         ************************************************
+0639 fa2e a6 61              ZOTCH1  LDA     1,S             ; LOAD CHARACTER TO SEND
+0640 fa30 30 8c 09                   LEAX    <ZPCRLS,PCR     ; DEFAULT FOR LINE FEED
+0641 fa33 81 0a                      CMPA    #LF             ; ? LINE FEED
+0642 fa35 27 0f                      BEQ     ZPDTLP          ; BRANCH TO CHECK PAUSE IF SO
+0643 fa37 8d b3              ZOTCH2  BSR     SEND            ; SEND TO OUTPUT ROUTINE
+0644 fa39 0c 94              ZOTCH3  INC     <SWICNT         ; BUMP UP "SWI" TRACE NEST LEVEL
+0645 fa3b 3b                         RTI                     ; RETURN FROM "SWI" FUNCTION
+0646                         
+0647                         **************************************************
+0648                         * [SWI FUNCTION 6]
+0649                         * PCRLF - SEND CR/LF TO CONSOLE HANDLER
+0650                         * INPUT: NONE
+0651                         * OUTPUT: CR AND LF SENT TO HANDLER
+0652                         * C=0 NO CTL-X, C=1 CTL-X RECEIVED
+0653                         **************************************************
+0654 fa3c 04                 ZPCRLS  FCB     EOT             ; NULL STRING
+0655 fa3d 30 8c fc           ZPCRLF LEAX     ZPCRLS,PCR      ; READY CR,LF STRING
+0656                         * FALL INTO CR/LF CODE
+0657                         
+0658                         **************************************************
+0659                         * [SWI FUNCTION 3]
+0660                         * PDATA - OUTPUT CR/LF AND STRING
+0661                         * INPUT: X->STRING
+0662                         * OUTPUT: CR/LF AND STRING SENT TO OUTPUT CONSOLE
+0663                         * HANDLER.
+0664                         * C=0 NO CTL-X, C=1 CTL-X RECEIVED
+0665                         * NOTE: LINE FEED MUST FOLLOW CARRIAGE RETURN FOR
+0666                         * PROPER PUNCH DATA.
+0667                         **************************************************
+0668                         
+0669 fa40 86 0d              ZPDATA  LDA     #CR             ; LOAD CARRIAGE RETURN
+0670 fa42 8d a8                      BSR     SEND            ; SEND IT
+0671 fa44 86 0a                      LDA     #LF             ; LOAD LINE FEED
+0672                         * FALL INTO PDATA1
+0673                         
+0674                         *************************************************
+0675                         * [SWI FUNCTION 2]
+0676                         * PDATA1 - OUTPUT STRING TILL EOT ($04)
+0677                         * THIS ROUTINE PAUSES IF AN INPUT BYTE BECOMES
+0678                         * AVAILABLE DURING OUTPUT TRANSMISSION UNTIL A
+0679                         * SECOND IS RECEIVED.
+0680                         * INPUT: X->STRING
+0681                         * OUTPUT: STRING SENT TO OUTPUT CONSOLE DRIVER
+0682                         * C=0 NO CTL-X, C=1 CTL-X RECEIVED
+0683                         *************************************************
+0684                         
+0685 fa46 8d a4              ZPDTLP  BSR     SEND            ; SEND CHARACTER TO DRIVER
+0686 fa48 a6 80              ZPDTA1  LDA     ,X+             ; LOAD NEXT CHARACTER
+0687 fa4a 81 04                      CMPA    #EOT            ; ? EOT
+0688 fa4c 26 f8                      BNE     ZPDTLP          ; LOOP IF NOT
+0689                         * FALL INTO PAUSE CHECK FUNCTION
+0690                         
+0691                         ********************************************
+0692                         * [SWI FUNCTION 12]
+0693                         * PAUSE - RETURN TO TASK DISPATCHING AND CHECK
+0694                         * FOR FREEZE CONDITION OR CTL-X BREAK
+0695                         * THIS FUNCTION ENTERS THE TASK PAUSE HANDLER SO
+0696                         * OPTIONALLY OTHER 6809 PROCESSES MAY GAIN CONTROL.
+0697                         * UPON RETURN, CHECK FOR A 'FREEZE' CONDITION
+0698                         * WITH A RESULTING WAIT LOOP, OR CONDITION CODE
+0699                         * RETURN IF A CONTROL-X IS ENTERED FROM THE INPUT
+0700                         * HANDLER.
+0701                         * OUTPUT: C=1 IF CTL-X HAS ENTERED, C=0 OTHERWISE
+0702                         ******************************************
+0703                         
+0704 fa4e 8d 1e              ZPAUSE  BSR     XQPAUS          ; RELEASE CONTROL AT EVERY LINE
+0705 fa50 8d 06                      BSR     CHKABT          ; CHECK FOR FREEZE OR ABORT
+0706 fa52 1f a9                      TFR     CC,B            ; PREPARE TO REPLACE CC
+0707 fa54 e7 e4                      STB     ,S              ; OVERLAY OLD ONE ON STACK
+0708 fa56 20 e1                      BRA     ZOTCH3          ; RETURN FROM "SWI"
+0709                         
+0710                         * CHKABT - SCAN FOR INPUT PAUSE/ABORT DURING OUTPUT
+0711                         * OUTPUT: C=0 OK, C=1 ABORT (CTL-X ISSUED)
+0712                         * VOLATILE: U,X,D
+0713 fa58 8d 18              CHKABT  BSR     XQCIDT          ; ATTEMPT INPUT
+0714 fa5a 24 05                      BCC     CHKRTN          ; BRANCH NO TO RETURN
+0715 fa5c 81 18                      CMPA    #CAN            ; ? CTL-X FOR ABORT
+0716 fa5e 26 02                      BNE     CHKWT           ; BRANCH NO TO PAUSE
+0717 fa60 53                 CHKSEC  COMB                    ; SET CARRY
+0718 fa61 39                 CHKRTN  RTS                     ; RETURN TO CALLER WITH CC SET
+0719 fa62 8d 0a              CHKWT   BSR     XQPAUS          ; PAUSE FOR A MOMENT
+0720 fa64 8d 0c                      BSR     XQCIDT          ; ? KEY FOR START
+0721 fa66 24 fa                      BCC     CHKWT           ; LOOP UNTIL RECEIVED
+0722 fa68 81 18                      CMPA    #CAN            ; ? ABORT SIGNALED FROM WAIT
+0723 fa6a 27 f4                      BEQ     CHKSEC          ; BRANCH YES
+0724 fa6c 4f                         CLRA                    ; SET C=0 FOR NO ABORT
+0725 fa6d 39                         RTS                     ; AND RETURN
+0726                         
+0727                         * SAVE MEMORY WITH JUMPS
+0728 fa6e 6e 9d 66 7c        XQPAUS  JMP   [VECTAB+.PAUSE,PCR] ; TO PAUSE ROUTINE
+0729 fa72 ad 9d 66 66        XQCIDT  JSR   [VECTAB+.CIDTA,PCR] ; TO INPUT ROUTINE
+0730 fa76 84 7f                      ANDA  #$7F              ; STRIP PARITY
+0731 fa78 39                         RTS                     ; RETURN TO CALLER
+0732                         
+0733                         ********************************************
+0734                         * NMI DEFAULT INTERRUPT HANDLER
+0735                         * THE NMI HANDLER IS USED FOR TRACING INSTRUCTIONS.
+0736                         * TRACE PRINTOUTS OCCUR ONLY AS LONG AS THE STACK
+0737                         * TRACE LEVEL IS NOT BREACHED BY FALLING BELOW IT.
+0738                         * TRACING CONTINUES UNTIL THE COUNT TURNS ZERO OR
+0739                         * A CTL-X IS ENTERED FROM THE INPUT CONSOLE DEVICE.
+0740                         *********************************************
+0741                         
+0742 fa79 4f 50 2d 04        MSHOWP  FCB     'O,'P,'-,EOT    ; OPCODE PREP
+0743                         
+0744 fa7d 8d 42              NMIR    BSR     LDDP            ; LOAD PAGE AND VERIFY STACK
+0745 fa7f 0d 93                      TST     <MISFLG         ; ? THRU A BREAKPOINT
+0746 fa81 26 34                      BNE     NMICON          ; BRANCH IF SO TO CONTINUE
+0747 fa83 0d 94                      TST     <SWICNT         ; ? INHIBIT "SWI" DURING TRACE
+0748 fa85 2b 29                      BMI     NMITRC          ; BRANCH YES
+0749 fa87 30 6c                      LEAX    12,S            ; OBTAIN USERS STACK POINTER
+0750 fa89 9c fc                      CMPX    <SLEVEL         ; ? TO TRACE HERE
+0751 fa8b 25 23                      BLO     NMITRC          ; BRANCH IF TOO LOW TO DISPLAY
+0752 fa8d 30 8c e9                   LEAX    MSHOWP,PCR      ; LOAD OP PREP
+0753 fa90 3f                         SWI                     ; SEND TO CONSOLE
+0754 fa91 02                         FCB     PDATA1          ; FUNCTION
+0755 fa92 09 92                      ROL     <DELIM          ; SAVE CARRY BIT
+0756 fa94 30 8d 66 05                LEAX    LASTOP,PCR      ; POINT TO LAST OP
+0757 fa98 3f                         SWI                     ; SEND OUT AS HEX
+0758 fa99 05                         FCB     OUT4HS          ; FUNCTION
+0759 fa9a 8d 17                      BSR     REGPRS          ; FOLLOW MEMORY WITH REGISTERS
+0760 fa9c 25 37                      BCS     ZBKCMD          ; BRANCH IF "CANCEL"
+0761 fa9e 06 92                      ROR     <DELIM          ; RESTORE CARRY BIT
+0762 faa0 25 33                      BCS     ZBKCMD          ; BRANCH IF "CANCEL"
+0763 faa2 9e 95                      LDX     <TRACEC         ; LOAD TRACE COUNT
+0764 faa4 27 2f                      BEQ     ZBKCMD          ; IF ZERO TO COMMAND HANDLER
+0765 faa6 30 1f                      LEAX    -1,X            ; MINUS ONE
+0766 faa8 9f 95                      STX     <TRACEC         ; REFRESH
+0767 faaa 27 29                      BEQ     ZBKCMD          ; STOP TRACE WHEN ZERO
+0768 faac 8d aa                      BSR     CHKABT          ; ? ABORT THE TRACE
+0769 faae 25 25                      BCS     ZBKCMD          ; BRANCH YES TO COMMAND HANDLER
+0770 fab0 16 03 f7           NMITRC  LBRA    CTRCE3          ; NO, TRACE ANOTHER INSTRUCTION
+0771                         
+0772 fab3 17 01 b9           REGPRS  LBSR    REGPRT          ; PRINT REGISTERS AS FROM COMMAND
+0773 fab6 39                         RTS                     ; RETURN TO CALLER
+0774                         
+0775                         * JUST EXECUTED THRU A BRKPNT. NOW CONTINUE NORMALLY
+0776                         
+0777 fab7 0f 93              NMICON  CLR     <MISFLG        ; CLEAR THRU FLAG
+0778 fab9 17 02 eb                   LBSR    ARMBK2         ; ARM BREAKPOINTS
+0779 fabc 3b                 RTI     RTI                    ; AND CONTINUE USERS PROGRAM
+0780                         
+0781                         * LDDP - SETUP DIRECT PAGE REGISTER, VERIFY STACK.
+0782                         * AN INVALID STACK CAUSES A RETURN TO THE COMMAND
+0783                         * HANDLER.
+0784                         * INPUT: FULLY STACKED REGISTERS FROM AN INTERRUPT
+0785                         * OUTPUT: DPR LOADED TO WORK PAGE
+0786                         
+0787 fabd 3f 07 20 04        ERRMSG  FCB     '?,BELL,$20,EOT ; ERROR RESPONSE
+0788                         
+0789 fac1 e6 8d 65 dc        LDDP    LDB     BASEPG,PCR      ; LOAD DIRECT PAGE HIGH BYTE
+0790 fac5 1f 9b                      TFR     B,DP            ; SETUP DIRECT PAGE REGISTER
+0791 fac7 a1 63                      CMPA    3,S             ; ? IS STACK VALID
+0792 fac9 27 25                      BEQ     RTS             ; YES, RETURN
+0793 facb 10 de 9b                   LDS     <RSTACK         ; RESET TO INITIAL STACK POINTER
+0794 face 30 8c ec           ERROR   LEAX    ERRMSG,PCR      ; LOAD ERROR REPORT
+0795 fad1 3f                         SWI                     ; SEND OUT BEFORE REGISTERS
+0796 fad2 03                         FCB     PDATA           ; ON NEXT LINE
+0797                         * FALL INTO BREAKPOINT HANDLER
+0798                         
+0799                         **********************************************
+0800                         * [SWI FUNCTION 10]
+0801                         * BREAKPOINT PROGRAM FUNCTION
+0802                         * PRINT REGISTERS AND GO TO COMMAND HANLER
+0803                         ***********************************************
+0804                         
+0805 fad3 8d de              ZBKPNT  BSR     REGPRS          ; PRINT OUT REGISTERS
+0806 fad5 16 fe 21           ZBKCMD  LBRA    CMDNEP          ; NOW ENTER COMMAND HANDLER
+0807                         
+0808                         ********************************************
+0809                         * IRQ, RESERVED, SWI2 AND SWI3 INTERRUPT HANDLERS
+0810                         * THE DEFAULT HANDLING IS TO CAUSE A BREAKPOINT.
+0811                         ********************************************
+0812 fad8                    SWI2R   EQU     *               ; SWI2 ENTRY
+0813 fad8                    SWI3R   EQU     *               ; SWI3 ENTRY
+0814 fad8                    IRQR    EQU     *               ; IRQ ENTRY
+0815 fad8 8d e7              RSRVDR  BSR     LDDP            ; SET BASE PAGE, VALIDATE STACK
+0816 fada 20 f7                      BRA     ZBKPNT          ; FORCE A BREAKPOINT
+0817                         
+0818                         ******************************************
+0819                         * FIRQ HANDLER
+0820                         * JUST RETURN FOR THE FIRQ INTERRUPT
+0821                         ******************************************
+0822 fabc                    FIRQR   EQU     RTI             ; IMMEDIATE RETURN
+0823                         
+0824                         **************************************************
+0825                         * DEFAULT I/O DRIVERS
+0826                         **************************************************
+0827                         * CIDTA - RETURN CONSOLE INPUT CHARACTER
+0828                         * OUTPUT: C=0 IF NO DATA READY, C=1 A=CHARACTER
+0829                         * U VOLATILE
+0830                         
+0831 fadc de f4              CIDTA   LDU     <VECTAB+.ACIA   ; LOAD ACIA ADDRESS
+0832 fade a6 c4                      LDA     ,U              ; LOAD STATUS REGISTER
+0833 fae0 44                         LSRA                    ; TEST RECEIVER REGISTER FLAG
+0834 fae1 24 02                      BCC     CIRTN           ; RETURN IF NOTHING
+0835 fae3 a6 41                      LDA     1,U             ; LOAD DATA BYTE
+0836 fae5 39                 CIRTN   RTS                     ; RETURN TO CALLER
+0837                         
+0838                         * CION - INPUT CONSOLE INITIALIZATION
+0839                         * COON - OUTPUT CONSOLE INITIALIZATION
+0840                         * A,X VOLATILE
+0841 fae6                    CION   EQU      *
+0842 fae6 86 13              COON   LDA      #$13            ; RESET ACIA CODE
+0843 fae8 9e f4                     LDX      <VECTAB+.ACIA   ; LOAD ACIA ADDRESS
+0844 faea a7 84                     STA      ,X              ; STORE INTO STATUS REGISTER
+0845 faec 86 15                     LDA      #$15            ; SET CONTROL
+0846 faee a7 84                     STA      ,X              ; REGISTER UP
+0847 faf0 39                 RTS    RTS                      ; RETURN TO CALLER
+0848                         
+0849                         * THE FOLLOWING HAVE NO DUTIES TO PERFORM
+0850 faf0                    CIOFF EQU       RTS             ; CONSOLE INPUT OFF
+0851 faf0                    COOFF EQU       RTS             ; CONSOLE OUTPUT OFF
+0852                         
+0853                         * CODTA - OUTPUT CHARACTER TO CONSOLE DEVICE
+0854                         * INPUT: A=CHARACTER TO SEND
+0855                         * OUTPUT: CHAR SENT TO TERMINAL WITH PROPER PADDING
+0856                         * ALL REGISTERS TRANSPARENT
+0857                         
+0858 faf1 34 47              CODTA   PSHS    U,D,CC          ; SAVE REGISTERS,WORK BYTE
+0859 faf3 de f4                      LDU     <VECTAB+.ACIA   ; ADDRESS ACIA
+0860 faf5 8d 1b                      BSR     CODTAO          ; CALL OUTPUT CHAR SUBROUTINE
+0861 faf7 81 10                      CMPA    #DLE            ; ? DATA LINE ESCAPE
+0862 faf9 27 12                      BEQ     CODTRT          ; YES, RETURN
+0863 fafb d6 f6                      LDB     <VECTAB+.PAD    ; DEFAULT TO CHAR PAD COUNT
+0864 fafd 81 0d                      CMPA    #CR             ; ? CR
+0865 faff 26 02                      BNE     CODTPD          ; BRANCH NO
+0866 fb01 d6 f7                      LDB     <VECTAB+.PAD+1  ; LOAD NEW LINE PAD COUNT
+0867 fb03 4f                 CODTPD  CLRA                    ; CREATE NULL
+0868 fb04 e7 e4                      STB     ,S              ; SAVE COUNT
+0869 fb06 8c                         FCB     SKIP2           ; ENTER LOOP
+0870 fb07 8d 09              CODTLP  BSR     CODTAO          ; SEND NULL
+0871 fb09 6a e4                      DEC     ,S              ; ? FINISHED
+0872 fb0b 2a fa                      BPL     CODTLP          ; NO, CONTINUE WITH MORE
+0873 fb0d 35 c7              CODTRT  PULS    PC,U,D,CC       ; RESTORE REGISTERS AND RETURN
+0874                         
+0875 fb0f 17 ff 5c           CODTAD  LBSR    XQPAUS          ; TEMPORARY GIVE UP CONTROL
+0876 fb12 e6 c4              CODTAO  LDB     ,U              ; LOAD ACIA CONTROL REGISTER
+0877 fb14 c5 02                      BITB    #$02            ; ? TX REGISTER CLEAR >LSAB FIXME
+0878 fb16 27 f7                      BEQ     CODTAD          ; RELEASE CONTROL IF NOT
+0879 fb18 a7 41                      STA     1,U             ; STORE INTO DATA REGISTER
+0880 fb1a 39                         RTS                     ; RETURN TO CALLER
+0881                         *E
+0882                         
+0883                         * BSON - TURN ON READ/VERIFY/PUNCH MECHANISM
+0884                         * A IS VOLATILE
+0885                         
+0886 fb1b 86 11              BSON    LDA     #$11            ; SET READ CODE
+0887 fb1d 6d 66                      TST     6,S             ; ? READ OR VERIFY
+0888 fb1f 26 01                      BNE     BSON2           ; BRANCH YES
+0889 fb21 4c                         INCA                    ; SET TO WRITE
+0890 fb22 3f                 BSON2   SWI                     ; PERFORM OUTPUT
+0891 fb23 01                         FCB     OUTCH           ; FUNCTION
+0892 fb24 0c 93                      INC     <MISFLG         ; SET LOAD IN PROGRESS FLAG
+0893 fb26 39                         RTS                     ; RETURN TO CALLER
+0894                         
+0895                         * BSOFF - TURN OFF READ/VERIFY/PUNCH MECHANISM
+0896                         * A,X VOLATILE
+0897                         
+0898 fb27 86 14              BSOFF   LDA     #$14            ; TO DC4 - STOP
+0899 fb29 3f                         SWI                     ; SEND OUT
+0900 fb2a 01                         FCB     OUTCH           ; FUNCTION
+0901 fb2b 4a                         DECA                    ; CHANGE TO DC3 (X-OFF)
+0902 fb2c 3f                         SWI                     ; SEND OUT
+0903 fb2d 01                         FCB     OUTCH           ; FUNCTION
+0904 fb2e 0a 93                      DEC     <MISFLG         ; CLEAR LOAD IN PROGRESS FLAG
+0905 fb30 8e 61 a8                   LDX     #25000          ; DELAY 1 SECOND (2MHZ CLOCK)
+0906 fb33 30 1f              BSOFLP  LEAX    -1,X            ; COUNT DOWN
+0907 fb35 26 fc                      BNE     BSOFLP          ; LOOP TILL DONE
+0908 fb37 39                         RTS                     ; RETURN TO CALLER
+0909                         
+0910                         * BSDTA - READ/VERIFY/PUNCH HANDLER
+0911                         * INPUT: S+6=CODE BYTE, VERIFY(-1),PUNCH(0),LOAD(1)
+0912                         * S+4=START ADDRESS
+0913                         * S+2=STOP ADDRESS
+0914                         * S+0=RETURN ADDRESS
+0915                         * OUTPUT: Z=1 NORMAL COMPLETION, Z=0 INVALID LOAD/VER
+0916                         * REGISTERS ARE VOLATILE
+0917 fb38 ee 62              BSDTA   LDU     2,S             ; U=TO ADDRESS OR OFFSET
+0918 fb3a 6d 66                      TST     6,S             ; ? PUNCH
+0919 fb3c 27 54                      BEQ     BSDPUN          ; BRANCH YES
+0920                         
+0921                         * DURING READ/VERIFY: S+2=MSB ADDRESS SAVE BYTE
+0922                         * S+1=BYTE COUNTER
+0923                         * S+0=CHECKSUM
+0924                         * U HOLDS OFFSET
+0925 fb3e 32 7d                      LEAS    -3,S            ; ROOM FOR WORK/COUNTER/CHECKSUM
+0926 fb40 3f                 BSDLD1  SWI                     ; GET NEXT CHARACTER
+0927 fb41 00                         FCB     INCHNP          ; FUNCTION
+0928 fb42 81 53              BSDLD2  CMPA    #'S             ; ? START OF S1/S9
+0929 fb44 26 fa                      BNE     BSDLD1          ; BRANCH NOT
+0930 fb46 3f                         SWI                     ; GET NEXT CHARACTER
+0931 fb47 00                         FCB     INCHNP          ; FUNCTION
+0932 fb48 81 39                      CMPA    #'9             ; ? HAVE S9
+0933 fb4a 27 22                      BEQ     BSDSRT          ; YES, RETURN GOOD CODE
+0934 fb4c 81 31                      CMPA    #'1             ; ? HAVE NEW RECORD
+0935 fb4e 26 f2                      BNE     BSDLD2          ; BRANCH IF NOT
+0936 fb50 6f e4                      CLR     ,S              ; CLEAR CHECKSUM
+0937 fb52 8d 21                      BSR     BYTE            ; OBTAIN BYTE COUNT
+0938 fb54 e7 61                      STB     1,S             ; SAVE FOR DECREMENT
+0939                         
+0940                         * READ ADDRESS
+0941 fb56 8d 1d                      BSR     BYTE            ; OBTAIN HIGH VALUE
+0942 fb58 e7 62                      STB     2,S             ; SAVE IT
+0943 fb5a 8d 19                      BSR     BYTE            ; OBTAIN LOW VALUE
+0944 fb5c a6 62                      LDA     2,S             ; MAKE D=VALUE
+0945 fb5e 31 cb                      LEAY    D,U             ; Y=ADDRESS+OFFSET
+0946                         * STORE TEXT
+0947 fb60 8d 13              BSDNXT  BSR     BYTE            ; NEXT BYTE
+0948 fb62 27 0c                      BEQ     BSDEOL          ; BRANCH IF CHECKSUM
+0949 fb64 6d 69                      TST     9,S             ; ? VERIFY ONLY
+0950 fb66 2b 02                      BMI     BSDCMP          ; YES, ONLY COMPARE
+0951 fb68 e7 a4                      STB     ,Y              ; STORE INTO MEMORY
+0952 fb6a e1 a0              BSDCMP  CMPB    ,Y+             ; ? VALID RAM
+0953 fb6c 27 f2                      BEQ     BSDNXT          ; YES, CONTINUE READING
+0954 fb6e 35 92              BSDSRT  PULS    PC,X,A          ; RETURN WITH Z SET PROPER
+0955 fb70 4c                 BSDEOL  INCA                    ; ? VALID CHECKSUM
+0956 fb71 27 cd                      BEQ     BSDLD1          ; BRANCH YES
+0957 fb73 20 f9                      BRA     BSDSRT          ; RETURN Z=0 INVALID
+0958                         
+0959                         * BYTE BUILDS 8 BIT VALUE FROM TWO HEX DIGITS IN
+0960 fb75 8d 12              BYTE    BSR     BYTHEX         ; OBTAIN FIRST HEX
+0961 fb77 c6 10                      LDB     #16            ; PREPARE SHIFT
+0962 fb79 3d                         MUL                    ; OVER TO A
+0963 fb7a 8d 0d                      BSR     BYTHEX         ; OBTAIN SECOND HEX
+0964 fb7c 34 04                      PSHS    B              ; SAVE HIGH HEX
+0965 fb7e ab e0                      ADDA    ,S+            ; COMBINE BOTH SIDES
+0966 fb80 1f 89                      TFR     A,B            ; SEND BACK IN B
+0967 fb82 ab 62                      ADDA    2,S            ; COMPUTE NEW CHECKSUM
+0968 fb84 a7 62                      STA     2,S            ; STORE BACK
+0969 fb86 6a 63                      DEC     3,S            ; DECREMENT BYTE COUNT
+0970 fb88 39                 BYTRTS  RTS                    ; RETURN TO CALLER
+0971                         
+0972 fb89 3f                 BYTHEX  SWI                    ; GET NEXT HEX
+0973 fb8a 00                         FCB     INCHNP         ; CHARACTER
+0974 fb8b 17 01 d4                   LBSR    CNVHEX         ; CONVERT TO HEX
+0975 fb8e 27 f8                      BEQ     BYTRTS         ; RETURN IF VALID HEX
+0976 fb90 35 f2                      PULS    PC,U,Y,X,A     ; RETURN TO CALLER WITH Z=0
+0977                         
+0978                         * PUNCH STACK USE: S+8=TO ADDRESS
+0979                         *                  S+6=RETURN ADDRESS
+0980                         *                  S+4=SAVED PADDING VALUES
+0981                         *                  S+2 FROM ADDRESS
+0982                         *                  S+1=FRAME COUNT/CHECKSUM
+0983                         *                  S+0=BYTE COUNT
+0984                         
+0985 fb92 de f6              BSDPUN  LDU     <VECTAB+.PAD    ; LOAD PADDING VALUES
+0986 fb94 ae 64                      LDX     4,S             ; X=FROM ADDRESS
+0987 fb96 34 56                      PSHS    U,X,D           ; CREATE STACK WORK AREA
+0988 fb98 cc 00 18                   LDD     #24             ; SET A=0, B=24
+0989 fb9b d7 f6                      STB     <VECTAB+.PAD    ; SETUP 24 CHARACTER PADS
+0990 fb9d 3f                         SWI                     ; SEND NULLS OUT
+0991 fb9e 01                         FCB     OUTCH           ; FUNCTION
+0992 fb9f c6 04                      LDB     #4              ; SETUP NEW LINE PAD TO 4
+0993 fba1 dd f6                      STD     <VECTAB+.PAD    ; SETUP PUNCH PADDING
+0994                         * CALCULATE SIZE
+0995 fba3 ec 68              BSPGO   LDD     8,S             ; LOAD TO
+0996 fba5 a3 62                      SUBD    2,S             ; MINUS FROM=LENGTH
+0997 fba7 10 83 00 18                CMPD    #24             ; ? MORE THAN 23
+0998 fbab 25 02                      BLO     BSPOK           ; NO, OK
+0999 fbad c6 17                      LDB     #23             ; FORCE TO 23 MAX
+1000 fbaf 5c                 BSPOK   INCB                    ; PREPARE COUNTER
+1001 fbb0 e7 e4                      STB     ,S              ; STORE BYTE COUNT
+1002 fbb2 cb 03                      ADDB    #3              ; ADJUST TO FRAME COUNT
+1003 fbb4 e7 61                      STB     1,S             ; SAVE
+1004                         
+1005                         *PUNCH CR,LF,NULS,S,1
+1006 fbb6 30 8c 33                  LEAX     <BSPSTR,PCR     ; LOAD START RECORD HEADER
+1007 fbb9 3f                        SWI                      ; SEND OUT
+1008 fbba 03                        FCB      PDATA           ; FUNCTION
+1009                         * SEND FRAME COUNT
+1010 fbbb 5f                        CLRB                     ; INITIALIZE CHECKSUM
+1011 fbbc 30 61                     LEAX     1,S             ; POINT TO FRAME COUNT AND ADDR
+1012 fbbe 8d 27                     BSR      BSPUN2          ; SEND FRAME COUNT
+1013                         *DATA ADDRESS
+1014 fbc0 8d 25                    BSR       BSPUN2          ; SEND ADDRESS HI
+1015 fbc2 8d 23                    BSR       BSPUN2          ; SEND ADDRESS LOW
+1016                         *PUNCH DATA
+1017 fbc4 ae 62                     LDX      2,S             ; LOAD START DATA ADDRESS
+1018 fbc6 8d 1f              BSPMRE BSR      BSPUN2          ; SEND OUT NEXT BYTE
+1019 fbc8 6a e4                     DEC      ,S              ; ? FINAL BYTE
+1020 fbca 26 fa                     BNE      BSPMRE          ; LOOP IF NOT DONE
+1021 fbcc af 62                     STX      2,S             ; UPDATE FROM ADDRESS VALUE
+1022                         *PUNCH CHECKSUM
+1023 fbce 53                        COMB                     ; COMPLEMENT
+1024 fbcf e7 61                     STB      1,S             ; STORE FOR SENDOUT
+1025 fbd1 30 61                     LEAX     1,S             ; POINT TO IT
+1026 fbd3 8d 14                     BSR      BSPUNC          ; SEND OUT AS HEX
+1027 fbd5 ae 68                     LDX      8,S             ; LOAD TOP ADDRESS
+1028 fbd7 ac 62                     CMPX     2,S             ; ? DONE
+1029 fbd9 24 c8                     BHS      BSPGO           ; BRANCH NOT
+1030 fbdb 30 8c 11                  LEAX     <BSPEOF,PCR     ; PREPARE END OF FILE
+1031 fbde 3f                        SWI                      ; SEND OUT STRING
+1032 fbdf 03                        FCB      PDATA           ; FUNCTION
+1033 fbe0 ec 64                     LDD      4,S             ; RECOVER PAD COUNTS
+1034 fbe2 dd f6                     STD      <VECTAB+.PAD    ; RESTORE
+1035 fbe4 4f                        CLRA                     ; SET Z=1 FOR OK RETURN
+1036 fbe5 35 d6                     PULS     PC,U,X,D        ; RETURN WITH OK CODE
+1037 fbe7 eb 84              BSPUN2 ADDB     ,X              ; ADD TO CHECKSUM
+1038 fbe9 16 fd ed           BSPUNC LBRA     ZOUT2H          ; SEND OUT AS HEX AND RETURN
+1039                         
+1040 fbec 53 31 04           BSPSTR FCB      'S,'1,EOT       ; CR,LF,NULLS,S,1
+1041 fbef 53 39 30 33 30 30  BSPEOF FCC      /S9030000FC/    ; EOF STRING
+     30 30 46 43
+1042 fbf9 0d 0a 04                  FCB      CR,LF,EOT
+1043                         
+1044                         * HSDTA - HIGH SPEED PRINT MEMORY
+1045                         * INPUT: S+4=START ADDRESS
+1046                         * S+2=STOP ADDRESS
+1047                         * S+0=RETURN ADDRESS
+1048                         * X,D VOLATILE
+1049                         
+1050                         * SEND TITLE
+1051                         
+1052 fbfc 3f                 HSDTA   SWI                     ; SEND NEW LINE
+1053 fbfd 06                         FCB     PCRLF           ; FUNCTION
+1054 fbfe c6 06                      LDB     #6              ; PREPARE 6 SPACES
+1055 fc00 3f                 HSBLNK  SWI                     ; SEND BLANK
+1056 fc01 07                         FCB     SPACE           ; FUNCTION
+1057 fc02 5a                         DECB                    ; COUNT DOWN
+1058 fc03 26 fb                      BNE     HSBLNK          ; LOOP IF MORE
+1059 fc05 5f                         CLRB                    ; SETUP BYTE COUNT
+1060 fc06 1f 98              HSHTTL  TFR     B,A             ; PREPARE FOR CONVERT
+1061 fc08 17 fd db                   LBSR    ZOUTHX          ; CONVERT TO A HEX DIGIT
+1062 fc0b 3f                         SWI                     ; SEND BLANK
+1063 fc0c 07                         FCB     SPACE           ; FUNCTION
+1064 fc0d 3f                         SWI                     ; SEND ANOTHER
+1065 fc0e 07                         FCB     SPACE           ; BLANK
+1066 fc0f 5c                         INCB                    ; UP ANOTHER
+1067 fc10 c1 10                      CMPB    #$10            ; ? PAST 'F'
+1068 fc12 25 f2                      BLO     HSHTTL          ; LOOP UNTIL SO
+1069 fc14 3f                 HSHLNE  SWI                     ; TO NEXT LINE
+1070 fc15 06                         FCB     PCRLF           ; FUNCTION
+1071 fc16 25 2f                      BCS     HSDRTN          ; RETURN IF USER ENTERED CTL-X
+1072 fc18 30 64                      LEAX    4,S             ; POINT AT ADDRESS TO CONVERT
+1073 fc1a 3f                         SWI                     ; PRINT OUT ADDRESS
+1074 fc1b 05                         FCB     OUT4HS          ; FUNCTION
+1075 fc1c ae 64                      LDX     4,S             ; LOAD ADDRESS PROPER
+1076 fc1e c6 10                      LDB     #16             ; NEXT SIXTEEN
+1077 fc20 3f                 HSHNXT  SWI                     ; CONVERT BYTE TO HEX AND SEND
+1078 fc21 04                         FCB     OUT2HS          ; FUNCTION
+1079 fc22 5a                         DECB                    ; COUNT DOWN
+1080 fc23 26 fb                      BNE     HSHNXT          ; LOOP IF NOT SIXTEENTH
+1081 fc25 3f                         SWI                     ; SEND BLANK
+1082 fc26 07                         FCB     SPACE           ; FUNCTION
+1083 fc27 ae 64                      LDX     4,S             ; RELOAD FROM ADDRESS
+1084 fc29 c6 10                      LDB     #16             ; COUNT
+1085 fc2b a6 80              HSHCHR  LDA     ,X+             ; NEXT BYTE
+1086 fc2d 2b 04                      BMI     HSHDOT          ; TOO LARGE, TO A DOT
+1087 fc2f 81 20                      CMPA    #'              ; ? LOWER THAN A BLANK
+1088 fc31 24 02                      BHS     HSHCOK          ; NO, BRANCH OK
+1089 fc33 86 2e              HSHDOT  LDA     #'.             ; CONVERT INVALID TO A BLANK
+1090 fc35 3f                 HSHCOK  SWI                     ; SEND CHARACTER
+1091 fc36 01                         FCB     OUTCH           ; FUNCTION
+1092 fc37 5a                         DECB                    ; ? DONE
+1093 fc38 26 f1                      BNE     HSHCHR          ; BRANCH NO
+1094 fc3a ac 62                      CPX     2,S             ; ? PAST LAST ADDRESS
+1095 fc3c 24 09                      BHS     HSDRTN          ; QUIT IF SO
+1096 fc3e af 64                      STX     4,S             ; UPDATE FROM ADDRESS
+1097 fc40 a6 65                      LDA     5,S             ; LOAD LOW BYTE ADDRESS
+1098 fc42 48                         ASLA                    ; ? TO SECTION BOUNDARY
+1099 fc43 26 cf                      BNE     HSHLNE          ; BRANCH IF NOT
+1100 fc45 20 b5                      BRA     HSDTA           ; BRANCH IF SO
+1101 fc47 3f                 HSDRTN  SWI                     ; SEND NEW LINE
+1102 fc48 06                         FCB     PCRLF           ; FUNCTION
+1103 fc49 39                         RTS                     ; RETURN TO CALLER
+1104                         *F
+1105                         
+1106                         ***********************************************
+1107                         *     A S S I S T 0 9    C O M M A N D S
+1108                         ***********************************************
+1109                         
+1110                         *************REGISTERS - DISPLAY AND CHANGE REGISTERS
+1111 fc4a 8d 23              CREG    BSR     REGPRT          ; PRINT REGISTERS
+1112 fc4c 4c                         INCA                    ; SET FOR CHANGE FUNCTION
+1113 fc4d 8d 21                      BSR     REGCHG          ; GO CHANGE, DISPLAY REGISTERS
+1114 fc4f 39                         RTS                     ; RETURN TO COMMAND PROCESSOR
+1115                         
+1116                         ********************************************
+1117                         * REGPRT - PRINT/CHANGE REGISTERS SUBROUTINE
+1118                         * WILL ABORT TO 'CMDBAD' IF OVERFLOW DETECTED DURING
+1119                         * A CHANGE OPERATION. CHANGE DISPLAYS REGISTERS WHEN
+1120                         * DONE.
+1121                         
+1122                         * REGISTER MASK LIST CONSISTS OF:
+1123                         * A) CHARACTERS DENOTING REGISTER
+1124                         * B) ZERO FOR ONE BYTE, -1 FOR TWO
+1125                         * C) OFFSET ON STACK TO REGISTER POSITION
+1126                         * INPUT: SP+4=STACKED REGISTERS
+1127                         * A=0 PRINT, A#0 PRINT AND CHANGE
+1128                         * OUTPUT: (ONLY FOR REGISTER DISPLAY)
+1129                         * C=1 CONTROL-X ENTERED, C=0 OTHERWISE
+1130                         * VOLATILE: D,X (CHANGE)
+1131                         * B,X (DISPLAY)
+1132                         *******************************************
+1133                         
+1134 fc50 50 43 ff 13        REGMSK  FCB     'P,'C,-1,19     ; PC REG
+1135 fc54 41 00 0a                   FCB     'A,0,10         ; A REG
+1136 fc57 42 00 0b                   FCB     'B,0,11         ; B REG
+1137 fc5a 58 ff 0d                   FCB     'X,-1,13        ; X REG
+1138 fc5d 59 ff 0f                   FCB     'Y,-1,15        ; Y REG
+1139 fc60 55 ff 11                   FCB     'U,-1,17        ; U REG
+1140 fc63 53 ff 01                   FCB     'S,-1,1         ; S REG
+1141 fc66 43 43 00 09                FCB     'C,'C,0,9       ; CC REG
+1142 fc6a 44 50 00 0c                FCB     'D,'P,0,12      ; DP REG
+1143 fc6e 00                         FCB     0               ; END OF LIST
+1144                         
+1145 fc6f 4f                 REGPRT  CLRA                    ; SETUP PRINT ONLY FLAG
+1146 fc70 30 e8 10           REGCHG  LEAX    4+12,S          ; READY STACK VALUE
+1147 fc73 34 32                      PSHS    Y,X,A           ; SAVE ON STACK WITH OPTION
+1148 fc75 31 8c d8                   LEAY    REGMSK,PCR      ; LOAD REGISTER MASK
+1149 fc78 ec a0              REGP1   LDD     ,Y+             ; LOAD NEXT CHAR OR <=0
+1150 fc7a 4d                         TSTA                    ; ? END OF CHARACTERS
+1151 fc7b 2f 04                      BLE     REGP2           ; BRANCH NOT CHARACTER
+1152 fc7d 3f                         SWI                     ; SEND TO CONSOLE
+1153 fc7e 01                         FCB     OUTCH           ; FUNCTION BYTE
+1154 fc7f 20 f7                      BRA     REGP1           ; CHECK NEXT
+1155 fc81 86 2d              REGP2   LDA     #'-             ; READY '-'
+1156 fc83 3f                         SWI                     ; SEND OUT
+1157 fc84 01                         FCB     OUTCH           ; WITH OUTCH
+1158 fc85 30 e5                      LEAX    B,S             ; X->REGISTER TO PRINT
+1159 fc87 6d e4                      TST     ,S              ; ? CHANGE OPTION
+1160 fc89 26 12                      BNE     REGCNG          ; BRANCH YES
+1161 fc8b 6d 3f                      TST     -1,Y            ; ? ONE OR TWO BYTES
+1162 fc8d 27 03                      BEQ     REGP3           ; BRANCH ZERO MEANS ONE
+1163 fc8f 3f                         SWI                     ; PERFORM WORD HEX
+1164 fc90 05                         FCB     OUT4HS          ; FUNCTION
+1165 fc91 8c                         FCB     SKIP2           ; SKIP BYTE PRINT
+1166 fc92 3f                 REGP3   SWI                     ; PERFORM BYTE HEX
+1167 fc93 04                         FCB     OUT2HS          ; FUNCTION
+1168 fc94 ec a0              REG4    LDD     ,Y+             ; TO FRONT OF NEXT ENTRY
+1169 fc96 5d                         TSTB                    ; ? END OF ENTRIES
+1170 fc97 26 df                      BNE     REGP1           ; LOOP IF MORE
+1171 fc99 3f                         SWI                     ; FORCE NEW LINE
+1172 fc9a 06                         FCB     PCRLF           ; FUNCTION
+1173 fc9b 35 b2              REGRTN  PULS    PC,Y,X,A        ; RESTORE STACK AND RETURN
+1174                         
+1175 fc9d 8d 40              REGCNG  BSR     BLDNNB          ; INPUT BINARY NUMBER
+1176 fc9f 27 10                      BEQ     REGNXC          ; IF CHANGE THEN JUMP
+1177 fca1 81 0d                      CMPA    #CR             ; ? NO MORE DESIRED
+1178 fca3 27 1e                      BEQ     REGAGN          ; BRANCH NOPE
+1179 fca5 e6 3f                      LDB     -1,Y            ; LOAD SIZE FLAG
+1180 fca7 5a                         DECB                    ; MINUS ONE
+1181 fca8 50                         NEGB                    ; MAKE POSITIVE
+1182 fca9 58                         ASLB                    ; TIMES TWO (=2 OR =4)
+1183 fcaa 3f                 REGSKP  SWI                     ; PERFORM SPACES
+1184 fcab 07                         FCB     SPACE           ; FUNCTION
+1185 fcac 5a                         DECB
+1186 fcad 26 fb                      BNE     REGSKP          ; LOOP IF MORE
+1187 fcaf 20 e3                      BRA     REG4            ; CONTINUE WITH NEXT REGISTER
+1188 fcb1 a7 e4              REGNXC  STA     ,S              ; SAVE DELIMITER IN OPTION
+1189                         *                               ; (ALWAYS > 0)
+1190 fcb3 dc 9f                      LDD     <NUMBER         ; OBTAIN BINARY RESULT
+1191 fcb5 6d 3f                      TST     -1,Y            ; ? TWO BYTES WORTH
+1192 fcb7 26 02                      BNE     REGTWO          ; BRANCH YES
+1193 fcb9 a6 82                      LDA     ,-X             ; SETUP FOR TWO
+1194 fcbb ed 84              REGTWO  STD     ,X              ; STORE IN NEW VALUE
+1195 fcbd a6 e4                      LDA     ,S              ; RECOVER DELIMITER
+1196 fcbf 81 0d                      CMPA    #CR             ; ? END OF CHANGES
+1197 fcc1 26 d1                      BNE     REG4            ; NO, KEEP ON TRUCK'N
+1198                         * MOVE STACKED DATA TO NEW STACK IN CASE STACK
+1199                         * POINTER HAS CHANGED
+1200 fcc3 30 8d 63 8e        REGAGN  LEAX    TSTACK,PCR      ; LOAD TEMP AREA
+1201 fcc7 c6 15                      LDB     #21             ; LOAD COUNT
+1202 fcc9 35 02              REGTF1  PULS    A               ; NEXT BYTE
+1203 fccb a7 80                      STA     ,X+             ; STORE INTO TEMP
+1204 fccd 5a                         DECB                    ; COUNT DOWN
+1205 fcce 26 f9                      BNE     REGTF1          ; LOOP IF MORE
+1206 fcd0 10 ee 88 ec                LDS     -20,X           ; LOAD NEW STACK POINTER
+1207 fcd4 c6 15                      LDB     #21             ; LOAD COUNT AGAIN
+1208 fcd6 a6 82              REGTF2 LDA      ,-X             ; NEXT TO STORE
+1209 fcd8 34 02                     PSHS     A               ; BACK ONTO NEW STACK
+1210 fcda 5a                        DECB                     ; COUNT DOWN
+1211 fcdb 26 f9                     BNE      REGTF2          ; LOOP IF MORE
+1212 fcdd 20 bc                     BRA      REGRTN          ; GO RESTART COMMAND
+1213                         
+1214                         *********************************************
+1215                         * BLDNUM - BUILDS BINARY VALUE FROM INPUT HEX
+1216                         * THE ACTIVE EXPRESSION HANDLER IS USED.
+1217                         * INPUT: S=RETURN ADDRESS
+1218                         * OUTPUT: A=DELIMITER WHICH TERMINATED VALUE
+1219                         * (IF DELM NOT ZERO)
+1220                         * "NUMBER"=WORD BINARY RESULT
+1221                         * Z=1 IF INPUT RECEIVED, Z=0 IF NO HEX RECEIVED
+1222                         * REGISTERS ARE TRANSPARENT
+1223                         **********************************************
+1224                         * EXECUTE SINGLE OR EXTENDED ROM EXPRESSION HANDLER
+1225                         *
+1226                         * THE FLAG "DELIM" IS USED AS FOLLOWS:
+1227                         * DELIM=0 NO LEADING BLANKS, NO FORCED TERMINATOR
+1228                         * DELIM=CHR ACCEPT LEADING 'CHR'S, FORCED TERMINATOR
+1229 fcdf 4f                 BLDNNB  CLRA                    ; NO DYNAMIC DELIMITER
+1230 fce0 8c                         FCB     SKIP2           ; SKIP NEXT INSTRUCTION
+1231                         * BUILD WITH LEADING BLANKS
+1232 fce1 86 20              BLDNUM  LDA     #'              ; ALLOW LEADING BLANKS
+1233 fce3 97 92                      STA     <DELIM          ; STORE AS DELIMITER
+1234 fce5 6e 9d 64 07                JMP     [VECTAB+.EXPAN,PCR]   ; TO EXP ANALYZER
+1235                         * THIS IS THE DEFAULT SINGLE ROM ANALYZER. WE ACCEPT:
+1236                         * 1) HEX INPUT
+1237                         * 2) 'M' FOR LAST MEMORY EXAMINE ADDRESS
+1238                         * 3) 'P' FOR PROGRAM COUNTER ADDRESS
+1239                         * 4) 'W' FOR WINDOW VALUE
+1240                         * 5) '@' FOR INDIRECT VALUE
+1241                         
+1242 fce9 34 14              EXP1    PSHS    X,B             ; SAVE REGISTERS
+1243 fceb 8d 5c              EXPDLM  BSR     BLDHXI          ; CLEAR NUMBER, CHECK FIRST CHAR
+1244 fced 27 18                      BEQ     EXP2            ; IF HEX DIGIT CONTINUE BUILDING
+1245                         * SKIP BLANKS IF DESIRED
+1246 fcef 91 92                      CMPA    <DELIM          ; ? CORRECT DELIMITER
+1247 fcf1 27 f8                      BEQ     EXPDLM          ; YES, IGNORE IT
+1248                         * TEST FOR M OR P
+1249 fcf3 9e a2                      LDX     <ADDR           ; DEFAULT FOR 'M'
+1250 fcf5 81 4d                      CMPA    #'M             ; ? MEMORY EXAMINE ADDR WANTED
+1251 fcf7 27 16                      BEQ     EXPTDL          ; BRANCH IF SO
+1252 fcf9 9e 97                      LDX     <PCNTER         ; DEFAULT FOR 'P'
+1253 fcfb 81 50                      CMPA    #'P             ; ? LAST PROGRAM COUNTER WANTED
+1254 fcfd 27 10                      BEQ     EXPTDL          ; BRANCH IF SO
+1255 fcff 9e a4                      LDX     <WINDOW         ; DEFAULT TO WINDOW
+1256 fd01 81 57                      CMPA    #'W             ; ? WINDOW WANTED
+1257 fd03 27 0a                      BEQ     EXPTDL
+1258                         
+1259 fd05 35 94              EXPRTN  PULS    PC,X,B          ; RETURN AND RESTORE REGISTERS
+1260                         * GOT HEX, NOW CONTINUE BUILDING
+1261 fd07 8d 44              EXP2    BSR     BLDHEX          ; COMPUTE NEXT DIGIT
+1262 fd09 27 fc                      BEQ     EXP2            ; CONTINUE IF MORE
+1263 fd0b 20 0a                      BRA     EXPCDL          ; SEARCH FOR +/-
+1264                         * STORE VALUE AND CHECK IF NEED DELIMITER
+1265 fd0d ae 84              EXPTDI  LDX     ,X              ; INDIRECTION DESIRED
+1266 fd0f 9f 9f              EXPTDL  STX     <NUMBER         ; STORE RESULT
+1267 fd11 0d 92                      TST     <DELIM          ; ? TO FORCE A DELIMITER
+1268 fd13 27 f0                      BEQ     EXPRTN          ; RETURN IF NOT WITH VALUE
+1269 fd15 8d 62                      BSR     READ            ; OBTAIN NEXT CHARACTER
+1270                         * TEST FOR + OR -
+1271 fd17 9e 9f              EXPCDL  LDX     <NUMBER         ; LOAD LAST VALUE
+1272 fd19 81 2b                      CMPA    #'+             ; ? ADD OPERATOR
+1273 fd1b 26 0e                      BNE     EXPCHM          ; BRANCH NOT
+1274 fd1d 8d 23                      BSR     EXPTRM          ; COMPUTE NEXT TERM
+1275 fd1f 34 02                      PSHS    A               ; SAVE DELIMITER
+1276 fd21 dc 9f                      LDD     <NUMBER         ; LOAD NEW TERM
+1277 fd23 30 8b              EXPADD  LEAX    D,X             ; ADD TO X
+1278 fd25 9f 9f                      STX     <NUMBER         ; STORE AS NEW RESULT
+1279 fd27 35 02                      PULS    A               ; RESTORE DELIMITER
+1280 fd29 20 ec                      BRA     EXPCDL          ; NOW TEST IT
+1281 fd2b 81 2d              EXPCHM  CMPA    #'-             ; ? SUBTRACT OPERATOR
+1282 fd2d 27 07                      BEQ     EXPSUB          ; BRANCH IF SO
+1283 fd2f 81 40                      CMPA    #'@             ; ? INDIRECTION DESIRED
+1284 fd31 27 da                      BEQ     EXPTDI          ; BRANCH IF SO
+1285 fd33 5f                         CLRB                    ; SET DELIMITER RETURN
+1286 fd34 20 cf                      BRA     EXPRTN          ; AND RETURN TO CALLER
+1287 fd36 8d 0a              EXPSUB  BSR     EXPTRM          ; OBTAIN NEXT TERM
+1288 fd38 34 02                      PSHS    A               ; SAVE DELIMITER
+1289 fd3a dc 9f                      LDD     <NUMBER         ; LOAD UP NEXT TERM
+1290 fd3c 40                         NEGA                    ; NEGATE A
+1291 fd3d 50                         NEGB                    ; NEGATE B
+1292 fd3e 82 00                      SBCA    #0              ; CORRECT FOR A
+1293 fd40 20 e1                      BRA     EXPADD          ; GO ADD TO EXPRESSION
+1294                         * COMPUTE NEXT EXPRESSION TERM
+1295                         * OUTPUT: X=OLD VALUE
+1296                         * 'NUMBER'=NEXT TERM
+1297 fd42 8d 9d              EXPTRM  BSR     BLDNUM          ; OBTAIN NEXT VALUE
+1298 fd44 27 32                      BEQ     CNVRTS          ; RETURN IF VALID NUMBER
+1299 fd46 16 fc 13           BLDBAD  LBRA    CMDBAD          ; ABORT COMMAND IF INVALID
+1300                         
+1301                         *********************************************
+1302                         * BUILD BINARY VALUE USING INPUT CHARACTERS.
+1303                         * INPUT: A=ASCII HEX VALUE OR DELIMITER
+1304                         * SP+0=RETURN ADDRESS
+1305                         * SP+2=16 BIT RESULT AREA
+1306                         * OUTPUT: Z=1 A=BINARY VALUE
+1307                         * Z=0 IF INVALID HEX CHARACTER (A UNCHANGED)
+1308                         * VOLATILE: D
+1309                         ****************************************
+1310 fd49 0f 9f              BLDHXI  CLR     <NUMBER         ; CLEAR NUMBER
+1311 fd4b 0f a0                      CLR     <NUMBER+1       ; CLEAR NUMBER
+1312 fd4d 8d 2a              BLDHEX  BSR     READ            ; GET INPUT CHARACTER
+1313 fd4f 8d 11              BLDHXC  BSR     CNVHEX          ; CONVERT AND TEST CHARACTER
+1314 fd51 26 25                      BNE     CNVRTS          ; RETURN IF NOT A NUMBER
+1315 fd53 c6 10                      LDB     #16             ; PREPARE SHIFT
+1316 fd55 3d                         MUL                     ; BY FOUR PLACES
+1317 fd56 86 04                      LDA     #4              ; ROTATE BINARY INTO VALUE
+1318 fd58 58                 BLDSHF  ASLB                    ; OBTAIN NEXT BIT
+1319 fd59 09 a0                      ROL     <NUMBER+1       ; INTO LOW BYTE
+1320 fd5b 09 9f                      ROL     <NUMBER         ; INTO HI BYTE
+1321 fd5d 4a                         DECA                    ; COUNT DOWN
+1322 fd5e 26 f8                      BNE     BLDSHF          ; BRANCH IF MORE TO DO
+1323 fd60 20 14                      BRA     CNVOK           ; SET GOOD RETURN CODE
+1324                         
+1325                         ****************************************
+1326                         * CONVERT ASCII CHARACTER TO BINARY BYTE
+1327                         * INPUT: A=ASCII
+1328                         * OUTPUT: Z=1 A=BINARY VALUE
+1329                         * Z=0 IF INVALID
+1330                         * ALL REGISTERS TRANSPARENT
+1331                         * (A UNALTERED IF INVALID HEX)
+1332                         **************************************
+1333 fd62 81 30              CNVHEX  CMPA    #'0             ; ? LOWER THAN A ZERO
+1334 fd64 25 12                      BLO     CNVRTS          ; BRANCH NOT VALUE
+1335 fd66 81 39                      CMPA    #'9             ; ? POSSIBLE A-F
+1336 fd68 2f 0a                      BLE     CNVGOT          ; BRANCH NO TO ACCEPT
+1337 fd6a 81 41                      CMPA    #'A             ; ? LESS THEN TEN
+1338 fd6c 25 0a                      BLO     CNVRTS          ; RETURN IF MINUS (INVALID)
+1339 fd6e 81 46                      CMPA    #'F             ; ? NOT TOO LARGE
+1340 fd70 22 06                      BHI     CNVRTS          ; NO, RETURN TOO LARGE
+1341 fd72 80 07                      SUBA    #7              ; DOWN TO BINARY
+1342 fd74 84 0f              CNVGOT  ANDA    #$0F            ; CLEAR HIGH HEX
+1343 fd76 1a 04              CNVOK   ORCC    #4              ; FORCE ZERO ON FOR VALID HEX
+1344 fd78 39                 CNVRTS  RTS                     ; RETURN TO CALLER
+1345                         
+1346                         * GET INPUT CHAR, ABORT COMMAND IF CONTROL-X (CANCEL)
+1347 fd79 3f                 READ     SWI                    ; GET NEXT CHARACTER
+1348 fd7a 00                          FCB    INCHNP          ; FUNCTION
+1349 fd7b 81 18                       CMPA   #CAN            ; ? ABORT COMMAND
+1350 fd7d 27 c7                       BEQ    BLDBAD          ; BRANCH TO ABORT IF SO
+1351 fd7f 39                          RTS                    ; RETURN TO CALLER
+1352                         *G
+1353                         
+1354                         ***************GO - START PROGRAM EXECUTION
+1355 fd80 8d 01              CGO      BSR    GOADDR          ; BUILD ADDRESS IF NEEDED
+1356 fd82 3b                          RTI                    ; START EXECUTING
+1357                         
+1358                         * FIND OPTIONAL NEW PROGRAM COUNTER. ALSO ARM THE
+1359                         * BREAKPOINTS.
+1360 fd83 35 30              GOADDR   PULS   Y,X             ; RECOVER RETURN ADDRESS
+1361 fd85 34 10                       PSHS   X               ; STORE RETURN BACK
+1362 fd87 26 19                       BNE    GONDFT          ; IF NO CARRIAGE RETURN THEN NEW PC
+1363                         
+1364                         * DEFAULT PROGRAM COUNTER, SO FALL THROUGH IF
+1365                         * IMMEDIATE BREAKPOINT.
+1366 fd89 17 01 b6                    LBSR   CBKLDR          ; SEARCH BREAKPOINTS
+1367 fd8c ae 6c                       LDX    12,S            ; LOAD PROGRAM COUNTER
+1368 fd8e 5a                 ARMBLP  DECB                    ; COUNT DOWN
+1369 fd8f 2b 16                      BMI     ARMBK2          ; DONE, NONE TO SINGLE TRACE
+1370 fd91 a6 30                      LDA     -NUMBKP*2,Y     ; PRE-FETCH OPCODE
+1371 fd93 ac a1                      CMPX    ,Y++            ; ? IS THIS A BREAKPOINT
+1372 fd95 26 f7                      BNE     ARMBLP          ; LOOP IF NOT
+1373 fd97 81 3f                      CMPA    #$3F            ; ? SWI BREAKPOINTED
+1374 fd99 26 02                      BNE     ARMNSW          ; NO, SKIP SETTING OF PASS FLAG
+1375 fd9b 97 ff                      STA     <SWIBFL         ; SHOW UPCOMING SWI NOT BRKPNT
+1376 fd9d 0c 93              ARMNSW  INC     <MISFLG         ; FLAG THRU A BREAKPOINT
+1377 fd9f 16 01 06                   LBRA    CDOT            ; DO SINGLE TRACE W/O BREAKPOINTS
+1378                         
+1379                         * OBTAIN NEW PROGRAM COUNTER
+1380 fda2 17 00 bb           GONDFT  LBSR    CDNUM           ; OBTAIN NEW PROGRAM COUNTER
+1381 fda5 ed 6c                      STD     12,S            ; STORE INTO STACK
+1382 fda7 17 01 98           ARMBK2  LBSR    CBKLDR          ; OBTAIN TABLE
+1383 fdaa 00 fe                      NEG     <BKPTCT         ; COMPLEMENT TO SHOW ARMED
+1384 fdac 5a                 ARMLOP  DECB                    ; ? DONE
+1385 fdad 2b c9                      BMI     CNVRTS          ; RETURN WHEN DONE
+1386 fdaf a6 b4                      LDA     [,Y]            ; LOAD OPCODE
+1387 fdb1 a7 30                      STA     -NUMBKP*2,Y     ; STORE INTO OPCODE TABLE
+1388 fdb3 86 3f                      LDA     #$3F            ; READY "SWI" OPCODE
+1389 fdb5 a7 b1                      STA     [,Y++]          ; STORE AND MOVE UP TABLE
+1390 fdb7 20 f3                      BRA     ARMLOP          ; AND CONTINUE
+1391                         
+1392                         *******************CALL - CALL ADDRESS AS SUBROUTINE
+1393 fdb9 8d c8              CCALL   BSR     GOADDR          ; FETCH ADDRESS IF NEEDED
+1394 fdbb 35 7f                      PULS    U,Y,X,DP,D,CC   ; RESTORE USERS REGISTERS
+1395 fdbd ad f1                      JSR     [,S++]          ; CALL USER SUBROUTINE
+1396 fdbf 3f                 CGOBRK  SWI                     ; PERFORM BREAKPOINT
+1397 fdc0 0a                         FCB     BRKPT           ; FUNCTION
+1398 fdc1 20 fc                      BRA     CGOBRK          ; LOOP UNTIL USER CHANGES PC
+1399                         
+1400                         ****************MEMORY - DISPLAY/CHANGE MEMORY
+1401                         * CMEMN AND CMPADP ARE DIRECT ENTRY POINTS FROM
+1402                         * THE COMMAND HANDLER FOR QUICK COMMANDS
+1403 fdc3 17 00 9a           CMEM    LBSR    CDNUM           ; OBTAIN ADDRESS
+1404 fdc6 dd a2              CMEMN   STD     <ADDR           ; STORE DEFAULT
+1405 fdc8 9e a2              CMEM2   LDX     <ADDR           ; LOAD POINTER
+1406 fdca 17 fc 0c                   LBSR    ZOUT2H          ; SEND OUT HEX VALUE OF BYTE
+1407 fdcd 86 2d                      LDA     #'-             ; LOAD DELIMITER
+1408 fdcf 3f                         SWI                     ; SEND OUT
+1409 fdd0 01                         FCB     OUTCH           ; FUNCTION
+1410 fdd1 17 ff 0b           CMEM4   LBSR    BLDNNB          ; OBTAIN NEW BYTE VALUE
+1411 fdd4 27 0a                      BEQ     CMENUM          ; BRANCH IF NUMBER
+1412                         * COMA - SKIP BYTE
+1413 fdd6 81 2c                      CMPA    #',             ; ? COMMA
+1414 fdd8 26 0e                      BNE     CMNOTC          ; BRANCH NOT
+1415 fdda 9f a2                      STX     <ADDR           ; UPDATE POINTER
+1416 fddc 30 01                      LEAX    1,X             ; TO NEXT BYTE
+1417 fdde 20 f1                      BRA     CMEM4           ; AND INPUT IT
+1418 fde0 d6 a0              CMENUM  LDB     <NUMBER+1       ; LOAD LOW BYTE VALUE
+1419 fde2 8d 47                      BSR     MUPDAT          ; GO OVERLAY MEMORY BYTE
+1420 fde4 81 2c                      CMPA    #',             ; ? CONTINUE WITH NO DISPLAY
+1421 fde6 27 e9                      BEQ     CMEM4           ; BRANCH YES
+1422                         * QUOTED STRING
+1423 fde8 81 27              CMNOTC  CMPA    #$27            ; ? QUOTED STRING
+1424 fdea 26 0c                      BNE     CMNOTQ          ; BRANCH NO
+1425 fdec 8d 8b              CMESTR  BSR     READ            ; OBTAIN NEXT CHARACTER
+1426 fdee 81 27                      CMPA    #$27            ; ? END OF QUOTED STRING
+1427 fdf0 27 0c                      BEQ     CMSPCE          ; YES, QUIT STRING MODE
+1428 fdf2 1f 89                      TFR     A,B             ; TO B FOR SUBROUTINE
+1429 fdf4 8d 35                      BSR     MUPDAT          ; GO UPDATE BYTE
+1430 fdf6 20 f4                      BRA     CMESTR          ; GET NEXT CHARACTER
+1431                         * BLANK - NEXT BYTE
+1432 fdf8 81 20              CMNOTQ  CMPA    #$20            ; ? BLANK FOR NEXT BYTE
+1433 fdfa 26 06                      BNE     CMNOTB          ; BRANCH NOT
+1434 fdfc 9f a2                      STX     <ADDR           ; UPDATE POINTER
+1435 fdfe 3f                 CMSPCE  SWI                     ; GIVE SPACE
+1436 fdff 07                         FCB     SPACE           ; FUNCTION
+1437 fe00 20 c6                      BRA     CMEM2           ; NOW PROMPT FOR NEXT
+1438                         
+1439                         * LINE FEED - NEXT BYTE WITH ADDRESS
+1440 fe02 81 0a              CMNOTB  CMPA    #LF             ; ? LINE FEED FOR NEXT BYTE
+1441 fe04 26 08                      BNE     CMNOTL          ; BRANCH NO
+1442 fe06 86 0d                      LDA     #CR             ; GIVE CARRIAGE RETURN
+1443 fe08 3f                         SWI                     ; TO CONSOLE
+1444 fe09 01                         FCB     OUTCH           ; HANDLER
+1445 fe0a 9f a2                      STX     <ADDR           ; STORE NEXT ADDRESS
+1446 fe0c 20 0a                      BRA     CMPADP          ; BRANCH TO SHOW
+1447                         
+1448                         * UP ARROW - PREVIOUS BYTE AND ADDRESS
+1449 fe0e 81 5e              CMNOTL  CMPA    #'^             ; ? UP ARROW FOR PREVIOUS BYTE
+1450 fe10 26 0a                      BNE     CMNOTU          ; BRANCH NOT
+1451 fe12 30 1e                      LEAX    -2,X            ; DOWN TO PREVIOUS BYTE
+1452 fe14 9f a2                      STX     <ADDR           ; STORE NEW POINTER
+1453 fe16 3f                 CMPADS  SWI                     ; FORCE NEW LINE
+1454 fe17 06                         FCB     PCRLF           ; FUNCTION
+1455 fe18 8d 07              CMPADP  BSR     PRTADR          ; GO PRINT ITS VALUE
+1456 fe1a 20 ac                      BRA     CMEM2           ; THEN PROMPT FOR INPUT
+1457                         
+1458                         * SLASH - NEXT BYTE WITH ADDRESS
+1459 fe1c 81 2f              CMNOTU  CMPA    #'/             ; ? SLASH FOR CURRENT DISPLAY
+1460 fe1e 27 f6                      BEQ     CMPADS          ; YES, SEND ADDRESS
+1461 fe20 39                         RTS                     ; RETURN FROM COMMAND
+1462                         
+1463                         * PRINT CURRENT ADDRESS
+1464 fe21 9e a2              PRTADR  LDX     <ADDR           ; LOAD POINTER VALUE
+1465 fe23 34 10                      PSHS    X               ; SAVE X ON STACK
+1466 fe25 30 e4                      LEAX    ,S              ; POINT TO IT FOR DISPLAY
+1467 fe27 3f                         SWI                     ; DISPLAY POINTER IN HEX
+1468 fe28 05                         FCB     OUT4HS          ; FUNCTION
+1469 fe29 35 90                      PULS    PC,X            ; RECOVER POINTER AND RETURN
+1470                         
+1471                         * UPDATE BYTE
+1472 fe2b 9e a2              MUPDAT  LDX     <ADDR           ; LOAD NEXT BYTE POINTER
+1473 fe2d e7 80                      STB     ,X+             ; STORE AND INCREMENT X
+1474 fe2f e1 1f                      CMPB    -1,X            ; ? SUCCESFULL STORE
+1475 fe31 26 03                      BNE     MUPBAD          ; BRANCH FOR '?' IF NOT
+1476 fe33 9f a2                      STX     <ADDR           ; STORE NEW POINTER VALUE
+1477 fe35 39                         RTS                     ; BACK TO CALLER
+1478 fe36 34 02              MUPBAD  PSHS    A               ; SAVE A REGISTER
+1479 fe38 86 3f                      LDA     #'?             ; SHOW INVALID
+1480 fe3a 3f                         SWI                     ; SEND OUT
+1481 fe3b 01                         FCB     OUTCH           ; FUNCTION
+1482 fe3c 35 82                      PULS    PC,A            ; RETURN TO CALLER
+1483                         
+1484                         ********************WINDOW - SET WINDOW VALUE
+1485 fe3e 8d 20              CWINDO  BSR     CDNUM           ; OBTAIN WINDOW VALUE
+1486 fe40 dd a4                      STD     <WINDOW         ; STORE IT IN
+1487 fe42 39                         RTS                     ; END COMMAND
+1488                         
+1489                         ******************DISPLAY - HIGH SPEED DISPLAY MEMORY
+1490 fe43 8d 1b              CDISP   BSR     CDNUM           ; FETCH ADDRESS
+1491 fe45 c4 f0                      ANDB    #$F0            ; FORCE TO 16 BOUNDARY
+1492 fe47 1f 02                      TFR     D,Y             ; SAVE IN Y
+1493 fe49 30 2f                      LEAX    15,Y            ; DEFAULT LENGTH
+1494 fe4b 25 04                      BCS     CDISPS          ; BRANCH IF END OF INPUT
+1495 fe4d 8d 11                      BSR     CDNUM           ; OBTAIN COUNT
+1496 fe4f 30 ab                      LEAX    D,Y             ; ASSUME COUNT, COMPUTE END ADDR
+1497 fe51 34 30              CDISPS  PSHS    Y,X             ; SETUP PARAMETERS FOR HSDATA
+1498 fe53 10 a3 62                   CMPD    2,S             ; ? WAS IT COUNT
+1499 fe56 23 02                      BLS     CDCNT           ; BRANCH YES
+1500 fe58 ed e4                      STD     ,S              ; STORE HIGH ADDRESS
+1501 fe5a ad 9d 62 88        CDCNT   JSR     [VECTAB+.HSDTA,PCR] ; CALL PRINT ROUTINE
+1502 fe5e 35 e0                      PULS    PC,U,Y          ; CLEAN STACK AND END COMMAND
+1503                         
+1504                         * OBTAIN NUMBER - ABORT IF NONE
+1505                         * ONLY DELIMITERS OF CR, BLANK, OR '/' ARE ACCEPTED
+1506                         * OUTPUT: D=VALUE, C=1 IF CARRIAGE RETURN DELMITER,
+1507                         * ELSE C=0
+1508 fe60 17 fe 7e           CDNUM   LBSR    BLDNUM          ; OBTAIN NUMBER
+1509 fe63 26 09                      BNE     CDBADN          ; BRANCH IF INVALID
+1510 fe65 81 2f                      CMPA    #'/             ; ? VALID DELIMITER
+1511 fe67 22 05                      BHI     CDBADN          ; BRANCH IF NOT FOR ERROR
+1512 fe69 81 0e                      CMPA    #CR+1           ; LEAVE COMPARE FOR CARRIAGE RET
+1513 fe6b dc 9f                      LDD     <NUMBER         ; LOAD NUMBER
+1514 fe6d 39                         RTS                     ; RETURN WITH COMPARE
+1515 fe6e 16 fa eb           CDBADN  LBRA    CMDBAD          ; RETURN TO ERROR MECHANISM
+1516                         
+1517                         *****************PUNCH - PUNCH MEMORY IN S1-S9 FORMAT
+1518 fe71 8d ed              CPUNCH  BSR     CDNUM           ; OBTAIN START ADDRESS
+1519 fe73 1f 02                      TFR     D,Y             ; SAVE IN Y
+1520 fe75 8d e9                      BSR     CDNUM           ; OBTAIN END ADDRESS
+1521 fe77 6f e2                      CLR     ,-S             ; SETUP PUNCH FUNCTION CODE
+1522 fe79 34 26                      PSHS    Y,D             ; STORE VALUES ON STACK
+1523 fe7b ad 9d 62 69        CCALBS  JSR     [VECTAB+.BSON,PCR] ; INITIALIZE HANDLER
+1524 fe7f ad 9d 62 67                JSR     [VECTAB+.BSDTA,PCR] ; PERFORM FUNCTION
+1525 fe83 34 01                      PSHS    CC              ; SAVE RETURN CODE
+1526 fe85 ad 9d 62 63                JSR     [VECTAB+.BSOFF,PCR] ; TURN OFF HANDLER
+1527 fe89 35 01                      PULS    CC              ; OBTAIN CONDITION CODE SAVED
+1528 fe8b 26 e1                      BNE     CDBADN          ; BRANCH IF ERROR
+1529 fe8d 35 b2                      PULS    PC,Y,X,A        ; RETURN FROM COMMAND
+1530                         
+1531                         *****************LOAD - LOAD MEMORY FROM S1-S9 FORMAT
+1532 fe8f 8d 01              CLOAD   BSR     CLVOFS          ; CALL SETUP AND PASS CODE
+1533 fe91 01                         FCB     1               ; LOAD FUNCTION CODE FOR PACKET
+1534                         
+1535 fe92 33 f1              CLVOFS  LEAU    [,S++]          ; LOAD CODE IN HIGH BYTE OF U
+1536 fe94 33 d4                      LEAU    [,U]            ; NOT CHANGING CC AND RESTORE S
+1537 fe96 27 03                      BEQ     CLVDFT          ; BRANCH IF CARRIAGE RETURN NEXT
+1538 fe98 8d c6                      BSR     CDNUM           ; OBTAIN OFFSET
+1539 fe9a 8c                         FCB     SKIP2           ; SKIP DEFAULT OFFSET
+1540 fe9b 4f                 CLVDFT  CLRA                    ; CREATE ZERO OFFSET
+1541 fe9c 5f                         CLRB                    ; AS DEFAULT
+1542 fe9d 34 4e                      PSHS    U,DP,D          ; SETUP CODE, NULL WORD, OFFSET
+1543 fe9f 20 da                      BRA     CCALBS          ; ENTER CALL TO BS ROUTINES
+1544                         
+1545                         ******************VERIFY - COMPARE MEMORY WITH FILES
+1546 fea1 8d ef              CVER    BSR     CLVOFS          ; COMPUTE OFFSET IF ANY
+1547 fea3 ff                         FCB     -1              ; VERIFY FNCTN CODE FOR PACKET
+1548                         
+1549                         *******************TRACE - TRACE INSTRUCTIONS
+1550                         ******************* . - SINGLE STEP TRACE
+1551 fea4 8d ba              CTRACE  BSR     CDNUM           ; OBTAIN TRACE COUNT
+1552 fea6 dd 95                      STD     <TRACEC         ; STORE COUNT
+1553 fea8 32 62              CDOT    LEAS    2,S             ; RID COMMAND RETURN FROM STACK
+1554 feaa ee f8 0a           CTRCE3  LDU     [10,S]          ; LOAD OPCODE TO EXECUTE
+1555 fead df 9d                      STU     <LASTOP         ; STORE FOR TRACE INTERRUPT
+1556 feaf de fa                      LDU     <VECTAB+.PTM    ; LOAD PTM ADDRESS
+1557 feb1 cc 07 01                   LDD     #$0701          ; 7,1 CYCLES DOWN+CYCLES UP
+1558 feb4 ed 42                      STD     PTMTM1-PTM,U    ; START NMI TIMEOUT
+1559 feb6 3b                         RTI                     ; RETURN FOR ONE INSTRUCTION
+1560                         
+1561                         *************NULLS  -  SET NEW LINE AND CHAR PADDING
+1562 feb7 8d a7              CNULLS  BSR     CDNUM           ; OBTAIN NEW LINE PAD
+1563 feb9 dd f6                      STD     <VECTAB+.PAD    ; RESET VALUES
+1564 febb 39                         RTS                     ; END COMMAND
+1565                         
+1566                         ******************STLEVEL - SET STACK TRACE LEVEL
+1567 febc 27 05              CSTLEV  BEQ     STLDFT          ; TAKE DEFAULT
+1568 febe 8d a0                      BSR     CDNUM           ; OBTAIN NEW STACK LEVEL
+1569 fec0 dd fc                      STD     <SLEVEL         ; STORE NEW ENTRY
+1570 fec2 39                         RTS                     ; TO COMMAND HANDLER
+1571 fec3 30 6e              STLDFT  LEAX    14,S            ; COMPUTE NMI COMPARE
+1572 fec5 9f fc                      STX     <SLEVEL         ; AND STORE IT
+1573 fec7 39                         RTS                     ; END COMMAND
+1574                         
+1575                         ******************OFFSET - COMPUTE SHORT AND LONG
+1576                         ******************                  BRANCH OFFSETS
+1577 fec8 8d 96              COFFS   BSR     CDNUM           ; OBTAIN INSTRUCTION ADDRESS
+1578 feca 1f 01                      TFR     D,X             ; USE AS FROM ADDRESS
+1579 fecc 8d 92                      BSR     CDNUM           ; OBTAIN TO ADDRESS
+1580                         * D=TO INSTRUCTION, X=FROM INSTRUCTION OFFSET BYTE(S)
+1581 fece 30 01                      LEAX    1,X             ; ADJUST FOR *+2 SHORT BRANCH
+1582 fed0 34 30                      PSHS    Y,X             ; STORE WORK WORD AND VALUE ON S
+1583 fed2 a3 e4                      SUBD    ,S              ; FIND OFFSET
+1584 fed4 ed e4                      STD     ,S              ; SAVE OVER STACK
+1585 fed6 30 61                      LEAX    1,S             ; POINT FOR ONE BYTE DISPLAY
+1586 fed8 1d                         SEX                     ; SIGN EXTEND LOW BYTE
+1587 fed9 a1 e4                      CMPA    ,S              ; ? VALID ONE BYTE OFFSET
+1588 fedb 26 02                      BNE     COFNO1          ; BRANCH IF NOT
+1589 fedd 3f                         SWI                     ; SHOW ONE BYTE OFFSET
+1590 fede 04                         FCB     OUT2HS          ; FUNCTION
+1591 fedf ee e4              COFNO1  LDU     ,S              ; RELOAD OFFSET
+1592 fee1 33 5f                      LEAU    -1,U            ; CONVERT TO LONG BRANCH OFFSET
+1593 fee3 ef 84                      STU     ,X              ; STORE BACK WHERE X POINTS NOW
+1594 fee5 3f                         SWI                     ; SHOW TWO BYTE OFFSET
+1595 fee6 05                         FCB     OUT4HS          ; FUNCTION
+1596 fee7 3f                         SWI                     ; FORCE NEW LINE
+1597 fee8 06                         FCB     PCRLF           ; FUNCTION
+1598 fee9 35 96                      PULS    PC,X,D          ; RESTORE STACK AND END COMMAND
+1599                         *H
+1600                         
+1601                         *************BREAKPOINT - DISPLAY/ENTER/DELETE/CLEAR
+1602                         *************             BREAKPOINTS
+1603 feeb 27 23              CBKPT   BEQ     CBKDSP          ; BRANCH DISPLAY OF JUST 'B'
+1604 feed 17 fd f1                   LBSR    BLDNUM          ; ATTEMPT VALUE ENTRY
+1605 fef0 27 2c                      BEQ     CBKADD          ; BRANCH TO ADD IF SO
+1606 fef2 81 2d                      CMPA    #'-             ; ? CORRECT DELIMITER
+1607 fef4 26 3f                      BNE     CBKERR          ; NO, BRANCH FOR ERROR
+1608 fef6 17 fd e8                   LBSR    BLDNUM          ; ATTEMPT DELETE VALUE
+1609 fef9 27 03                      BEQ     CBKDLE          ; GOT ONE, GO DELETE IT
+1610 fefb 0f fe                      CLR     <BKPTCT         ; WAS 'B -', SO ZERO COUNT
+1611 fefd 39                 CBKRTS  RTS                     ; END COMMAND
+1612                         * DELETE THE ENTRY
+1613 fefe 8d 40              CBKDLE  BSR     CBKSET          ; SETUP REGISTERS AND VALUE
+1614 ff00 5a                 CBKDLP  DECB                    ; ? ANY ENTRIES IN TABLE
+1615 ff01 2b 32                      BMI     CBKERR          ; BRANCH NO, ERROR
+1616 ff03 ac a1                      CMPX    ,Y++            ; ? IS THIS THE ENTRY
+1617 ff05 26 f9                      BNE     CBKDLP          ; NO, TRY NEXT
+1618                         * FOUND, NOW MOVE OTHERS UP IN ITS PLACE
+1619 ff07 ae a1              CBKDLM  LDX     ,Y++            ; LOAD NEXT ONE UP
+1620 ff09 af 3c                      STX     -4,Y            ; MOVE DOWN BY ONE
+1621 ff0b 5a                         DECB                    ; ? DONE
+1622 ff0c 2a f9                      BPL     CBKDLM          ; NO, CONTINUE MOVE
+1623 ff0e 0a fe                      DEC     <BKPTCT         ; DECREMENT BREAKPOINT COUNT
+1624 ff10 8d 2e              CBKDSP  BSR     CBKSET          ; SETUP REGISTERS AND LOAD VALUE
+1625 ff12 27 e9                      BEQ     CBKRTS          ; RETURN IF NONE TO DISPLY
+1626 ff14 30 a1              CBKDSL  LEAX    ,Y++            ; POINT TO NEXT ENTRY
+1627 ff16 3f                         SWI                     ; DISPLAY IN HEX
+1628 ff17 05                         FCB     OUT4HS          ; FUNCTION
+1629 ff18 5a                         DECB                    ; COUNT DOWN
+1630 ff19 26 f9                      BNE     CBKDSL          ; LOOP IF NGABLE RAM
+1631 ff1b 3f                         SWI                     ; SKIP TO NEW LINK
+1632 ff1c 06                         FCB     PCRLF           ; FUNCTIONRTS
+1633 ff1d 39                         RTS
+1634                         
+1635                         * ADD NEW ENTRY
+1636 ff1e 8d 20              CBKADD  BSR     CBKSET          ; SETUP REGISTERS
+1637 ff20 c1 08                      CMPB    #NUMBKP         ; ? ALREADY FULL
+1638 ff22 27 11                      BEQ     CBKERR          ; BRANCH ERROR IF SO
+1639 ff24 a6 84                      LDA     ,X              ; LOAD BYTE TO TRAP
+1640 ff26 e7 84                      STB     ,X              ; TRY TO CHANGE
+1641 ff28 e1 84                      CMPB    ,X              ; ? CHANGEABLE RAM
+1642 ff2a 26 09                      BNE     CBKERR          ; BRANCH ERROR IF NOT
+1643 ff2c a7 84                      STA ,X                  ; RESTORE BYTE
+1644 ff2e 5a                 CBKADL  DECB                    ; COUNT DOWN
+1645 ff2f 2b 07                      BMI     CBKADT          ; BRANCH IF DONE TO ADD IT
+1646 ff31 ac a1                      CMPX    ,Y++            ; ? ENTRY ALREADY HERE
+1647 ff33 26 f9                      BNE     CBKADL          ; LOOP IF NOT
+1648 ff35 16 fa 24           CBKERR  LBRA    CMDBAD          ; RETURN TO ERROR PRODUCE
+1649 ff38 af a4              CBKADT  STX ,Y                  ; ADD THIS ENTRY
+1650 ff3a 6f 31                      CLR     -NUMBKP*2+1,Y   ; CLEAR OPTIONAL BYTE
+1651 ff3c 0c fe                      INC     <BKPTCT         ; ADD ONE TO COUNT
+1652 ff3e 20 d0                      BRA     CBKDSP          ; AND NOW DISPLAY ALL OF 'EM
+1653                         * SETUP REGISTERS FOR SCAN
+1654 ff40 9e 9f              CBKSET  LDX     <NUMBER         ; LOAD VALUE DESIRED
+1655 ff42 31 8d 61 70        CBKLDR  LEAY    BKPTBL,PCR      ; LOAD START OF TABLE
+1656 ff46 d6 fe                      LDB     <BKPTCT         ; LOAD ENTRY COUNT
+1657 ff48 39                         RTS                     ; RETURN
+1658                         
+1659                         *****************ENCODE  -  ENCODE A POSTBYTE
+1660 ff49 6f e2              CENCDE  CLR     ,-S             ; DEFAULT TO NOT INDIRECT
+1661 ff4b 5f                         CLRB                    ; ZERO POSTBYTE VALUE
+1662 ff4c 30 8c 3f                   LEAX    <CONV1,PCR      ; START TABLE SEARCH
+1663 ff4f 3f                         SWI                     ; OBTAIN FIRST CHARACTER
+1664 ff50 00                         FCB     INCHNP          ; FUNCTION
+1665 ff51 81 5b                      CMPA    #'[             ; ? INDIRECT HERE
+1666 ff53 26 06                      BNE     CEN2            ; BRANCH IF NOT
+1667 ff55 86 10                      LDA     #$10            ; SET INDIRECT BIT ON
+1668 ff57 a7 e4                      STA     ,S              ; SAVE FOR LATER
+1669 ff59 3f                 CENGET  SWI                     ; OBTAIN NEXT CHARACTER
+1670 ff5a 00                         FCB     INCHNP          ; FUNCTION
+1671 ff5b 81 0d              CEN2    CMPA    #CR             ; ? END OF ENTRY
+1672 ff5d 27 0c                      BEQ     CEND1           ; BRANCH YES
+1673 ff5f 6d 84              CENLP1  TST     ,X              ; ? END OF TABLE
+1674 ff61 2b d2                      BMI     CBKERR          ; BRANCH ERROR IF SO
+1675 ff63 a1 81                      CMPA    ,X++            ; ? THIS THE CHARACTER
+1676 ff65 26 f8                      BNE     CENLP1          ; BRANCH IF NOT
+1677 ff67 eb 1f                      ADDB    -1,X            ; ADD THIS VALUE
+1678 ff69 20 ee                      BRA     CENGET          ; GET NEXT INPUT
+1679 ff6b 30 8c 49           CEND1   LEAX    <CONV2,PCR      ; POINT AT TABLE 2
+1680 ff6e 1f 98                      TFR     B,A             ; SAVE COPY IN A
+1681 ff70 84 60                      ANDA    #$60            ; ISOLATE REGISTER MASK
+1682 ff72 aa e4                      ORA     ,S              ; ADD IN INDIRECTION BIT
+1683 ff74 a7 e4                      STA     ,S              ; SAVE BACK AS POSTBYTE SKELETON
+1684 ff76 c4 9f                      ANDB    #$9F            ; CLEAR REGISTER BITS
+1685 ff78 6d 84              CENLP2  TST     ,X              ; ? END OF TABLE
+1686 ff7a 27 b9                      BEQ     CBKERR          ; BRANCH ERROR IF SO
+1687 ff7c e1 81                      CMPB    ,X++            ; ? SAME VALUE
+1688 ff7e 26 f8                      BNE     CENLP2          ; LOOP IF NOT
+1689 ff80 e6 1f                      LDB     -1,X            ; LOAD RESULT VALUE
+1690 ff82 ea e4                      ORB     ,S              ; ADD TO BASE SKELETON
+1691 ff84 e7 e4                      STB     ,S              ; SAVE POSTBYTE ON STACK
+1692 ff86 30 e4                      LEAX    ,S              ; POINT TO IT
+1693 ff88 3f                         SWI                     ; SEND OUT AS HEX
+1694 ff89 04                         FCB     OUT2HS          ; FUNCTION
+1695 ff8a 3f                         SWI                     ; TO NEXT LINE
+1696 ff8b 06                         FCB     PCRLF           ; FUNCTION
+1697 ff8c 35 84                      PULS    PC,B            ; END OF COMMAND
+1698                         
+1699                         * TABLE ONE DEFINES VALID INPUT IN SEQUENCE
+1700                         CONV1
+1701 ff8e 41 04 42 05 44 06          FCB     'A,$04,'B,$05,'D,$06,'H,$01
+     48 01
+1702 ff96 48 01 48 01 48 00          FCB     'H,$01,'H,$01,'H,$00,',,$00
+     2c 00
+1703 ff9e 2d 09 2d 01 53 70          FCB     '-,$09,'-,$01,'S,$70,'Y,$30
+     59 30
+1704 ffa6 55 50 58 10 2b 07          FCB     'U,$50,'X,$10,'+,$07,'+,$01
+     2b 01
+1705 ffae 50 80 43 00 52 00          FCB     'P,$80,'C,$00,'R,$00,'],$00
+     5d 00
+1706 ffb6 ff                         FCB     $FF             ; END OF TABLE
+1707                         
+1708                         * CONV2 USES ABOVE CONVERSION TO SET POSTBYTE
+1709                         * BIT SKELETON.
+1710                         CONV2
+1711 ffb7 10 84 11 00                FDB     $1084,$1100     ; R,      H,R
+1712 ffbb 12 88 13 89                FDB     $1288,$1389     ; HH,R    HHHH,R
+1713 ffbf 14 86 15 85                FDB     $1486,$1585     ; A,R     B,R
+1714 ffc3 16 8b 17 80                FDB     $168B,$1780     ; D,R     ,R+
+1715 ffc7 18 81 19 82                FDB     $1881,$1982     ; ,R++    ,-R
+1716 ffcb 1a 83 82 8c                FDB     $1A83,$828C     ; ,--R    HH,PCR
+1717 ffcf 83 8d 03 9f                FDB     $838D,$039F     ; HHHH,PCR [HHHH]
+1718 ffd3 00                         FCB     0               ; END OF TABLE
+1719                         
+1720                         ****************************************************
+1721                         *            DEFAULT INTERRUPT TRANSFERS           *
+1722                         ****************************************************
+1723 ffd4 6e 9d 60 f2        RSRVD   JMP     [VECTAB+.RSVD,PCR]      ; RESERVED VECTOR
+1724 ffd8 6e 9d 60 f0        SWI3    JMP     [VECTAB+.SWI3,PCR]      ; SWI3 VECTOR
+1725 ffdc 6e 9d 60 ee        SWI2    JMP     [VECTAB+.SWI2,PCR]      ; SWI2 VECTOR
+1726 ffe0 6e 9d 60 ec        FIRQ    JMP     [VECTAB+.FIRQ,PCR]      ; FIRQ VECTOR
+1727 ffe4 6e 9d 60 ea        IRQ     JMP     [VECTAB+.IRQ,PCR]       ; IRQ VECTOR
+1728 ffe8 6e 9d 60 e8        SWI     JMP     [VECTAB+.SWI,PCR]       ; SWI VECTOR
+1729 ffec 6e 9d 60 e6        NMI     JMP     [VECTAB+.NMI,PCR]       ; NMI VECTOR
+1730                         
+1731                         ******************************************************
+1732                         *            ASSIST09 HARDWARE VECTOR TABLE
+1733                         * THIS TABLE IS USED IF THE ASSIST09 ROM ADDRESSES
+1734                         * THE MC6809 HARDWARE VECTORS.
+1735                         ******************************************************
+1736 fff0                            ORG     ROMBEG+ROMSIZ-16 ; SETUP HARDWARE VECTORS
+1737 fff0 ff d4                      FDB     RSRVD           ; RESERVED SLOT
+1738 fff2 ff d8                      FDB     SWI3            ; SOFTWARE INTERRUPT 3
+1739 fff4 ff dc                      FDB     SWI2            ; SOFTWARE INTERRUPT 2
+1740 fff6 ff e0                      FDB     FIRQ            ; FAST INTERRUPT REQUEST
+1741 fff8 ff e4                      FDB     IRQ             ; INTERRUPT REQUEST
+1742 fffa ff e8                      FDB     SWI             ; SOFTWARE INTERRUPT
+1743 fffc ff ec                      FDB     NMI             ; NON-MASKABLE INTERRUPT
+1744 fffe f8 3b                      FDB     RESET           ; RESTART
