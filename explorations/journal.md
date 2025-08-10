@@ -37,7 +37,29 @@ Funcionou.
 
 Consumo: 17 mA
 
-#4 Algumas considereraçoes. A forma como é feito o select do MC68B50 invalida o uso dos 16K existentes entre a RAM e A ROM. porque tem inumeras replicas.
+Algumas considereraçoes. A forma como é feito o select do MC68B50 invalida o uso dos 16K existentes entre a RAM e A ROM. porque tem inumeras replicas.  
 
+#4 Com aforma como é feito o select do MC68B50 invalida o uso dos 16K existentes entre a RAM e A ROM. porque tem inumeras replicas, tenho que procurar fazer o decoding completo para ocupar apenas 2 endereços.  
+Portanto iniciei a execução faseada do SBC2 com isto em mente:  
 
+- diminuir o tamanho necessário da ROM para 4K.  
+- descodificar melhor o MC68B50. Só ocupar 2 endereços, que desejava serem os dois primeiros endereços dos ultimos 4K (sobropondo-se há rom que tem de ser desactivada).  
+- preparar para um novo mapa de memoria que esteja de acordo com os requerimentos do flex, e tenha um espaço de 6K para o MC6847 (paged in/out).  
+- fazer a maior parte do decoding com um GAL22V10D (e eventualmente um ou outro IC da serie 74Ls).  
+- preparar para mudar para uma RAM de 64K, em vez da de 32K (com page in/out da ROM).  
+
+O flex requer os seguintes espaços na memória  
+0000-2FFF : 12K RAM (Flex utils)  
+C000-DFFF : 8K RAM (Flex sys)  
+
+O memory map que quero é o seguinte:  
+0000-DFFF : 56K RAM  
+E000-F7FF : 6K VRAM/RAM (VRAM paged in/out)  
+F800-F801 : MC68B50 (2 bytes)  
+F802-F802 : PAGE_CTL (1 byte)  
+F803-F803 : FREE (1 byte)  
+F804-FFFF : 2K ROM (ASSIST09)  
+
+#5 Implementei parcialmente o que referi acima e não funcionou. Ainda não percebi porque. Vou reformular e simplificar, para  ver se faço passos menores.
+Consumo: 21/22 mA (com o GAL22V10D e o 74LS10 adicionados).  
 
