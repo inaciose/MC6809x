@@ -1,0 +1,52 @@
+Name     mc92gal1v2 ;
+PartNo   00 ;
+Date     8/10/2025 ;
+Revision 01 ;
+Designer sergio ;
+Company  none ;
+Assembly None ;
+Location  ;
+Device   g22v10 ;
+
+/* input pins */
+PIN 1   = CLK;
+PIN 2   = A345; /* AND(A13-A15) */
+PIN 3   = A112; /* AND(A11-A12)) */
+PIN 4   = A410; /* NOR (A4-A10)), 1 if all zeros */
+PIN 5   = A3;
+PIN 6   = A2;
+PIN 7   = A1;
+PIN 8   = A0;
+PIN 9   = RW;
+PIN 10   = E;
+PIN 11   = M47;
+/*PIN 12  = GND;*/
+PIN 13  = D0; 
+PIN 14  = D1;
+
+/* output pins */
+PIN 15  = OT_CS;
+PIN 16  = PR_CS;
+PIN 17  = M50_CS;
+PIN 18  = RAM_OE;
+PIN 19  = RAM_WE;
+PIN 20  = VRAM_CS;
+PIN 21  = RAM_CS;
+PIN 22  = ROM_OE;
+PIN 23  = ROM_CS;
+/*PIN 24  = VCC;*/
+
+/* logic definitions, common equations */
+SF8XX = A345 & A112;
+SPHER = SF8XX & A410 & !A3 & !A2;
+
+/* logic definitions, final equations */
+ROM_CS  = !(SF8XX & A2); 
+ROM_OE  = !(RW & E); /* falta considerar o page in/out */
+RAM_CS  = A345;
+VRAM_CS = !(A345 & !A112); 
+RAM_WE  = !(!RW & E);
+RAM_OE  = !(RW & E); /* falta considerar o page in/out */
+M50_CS  = !(SPHER & !A1) ;
+PR_CS   = !(SPHER & A1 & !A0) ;
+OT_CS   = !(SPHER & A1 & A0) ;
