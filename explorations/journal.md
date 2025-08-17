@@ -42,7 +42,7 @@ Algumas considereraçoes. A forma como é feito o select do MC68B50 invalida o u
 #4 Com aforma como é feito o select do MC68B50 invalida o uso dos 16K existentes entre a RAM e A ROM. porque tem inumeras replicas, tenho que procurar fazer o decoding completo para ocupar apenas 2 endereços.  
 Portanto iniciei a execução faseada do SBC2 com isto em mente:  
 
-- diminuir o tamanho necessário da ROM para 4K.  
+- diminuir o tamanho necessário da ROM para 2K.  
 - descodificar melhor o MC68B50. Só ocupar 2 endereços, que desejava serem os dois primeiros endereços dos ultimos 4K (sobropondo-se há rom que tem de ser desactivada).  
 - preparar para um novo mapa de memoria que esteja de acordo com os requerimentos do flex, e tenha um espaço de 6K para o MC6847 (paged in/out).  
 - fazer a maior parte do decoding com um GAL22V10D (e eventualmente um ou outro IC da serie 74Ls).  
@@ -58,8 +58,11 @@ E000-F7FF : 6K VRAM/RAM (VRAM paged in/out)
 F800-F801 : MC68B50 (2 bytes)  
 F802-F802 : PAGE_CTL (1 byte)  
 F803-F803 : FREE (1 byte)  
-F804-FFFF : 2K ROM (ASSIST09)  
+F804-FFFF : 2K ROM (ASSIST09) (RAM paged in/out)  
 
 #5 Implementei parcialmente o que referi acima e não funcionou. Ainda não percebi porque. Vou reformular e simplificar, para  ver se faço passos menores.
 Consumo: 21/22 mA (com o GAL22V10D e o 74LS10 adicionados).  
 
+#6 Reformulei as equações do GAL1, pois estavam erradas, e tive que usar outro, o GAL2, para ter um OR(A2 a A10). Desta vez funcionou e pude retirar o 74LS00, que fornecia os sinais ROM_CS, Write e Read. Assim como ligar o CS0 e o CS1 do MC68B50 a VCC, e o CS2 ao GAL1. Ou seja o mapa de memória ficou como acima, mas ainda sem o page. A ROM passou a ser a ASTF800, que apenas tem o assis09, com o inicio empurado 4 byes para cima (tive que passar o hello para AST9, em vez de ASSIST09, para ganhar os bytes).
+Depois de todas estas mudanças ficou a funcionar. Chamei-lhe SBC2a (versão temporária, no fim será o SBC2)
+O proximo passo será remover o 74LS11, cujas saidas vão ser fornecidas pelo GAL2 (depois de reconfigurado), e melhorar a disposição dos fios que levam o bus de endereços até ele, já que irá necessitar de A2 a A15 (neste momento tem de A2 a A10).

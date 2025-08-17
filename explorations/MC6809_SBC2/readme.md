@@ -13,3 +13,6 @@ Tenho que aprender a implemtar logica sequencial nos GAL.
 Neste momento com 8 ICs, o consumo é de 260mA.
 
 Reparei que tinha desligado a GND da ROM, mas no entanto a ROM funcionava. Talvez porque tenho o A15 e o A14 ligado á terra. (por falar nisso, deveria colocar uns jumpers para selecionar várias secçoes de 2k diferentes da ROM. Talvez com monitores diferentes, ou com o minimo de código necessário para fazer o boot de um 'cf card' ou de um 'sd card' antes de o ligar).
+
+O 74LS00 foi removido. Tudo a funcionar. Chamei-lhe SBC2a (versão temporária, no fim será o SBC2)
+O proximo passo será remover o 74LS11, cujas saidas vão ser fornecidas pelo GAL2 (depois de reconfigurado), e melhorar a disposição dos fios que levam o bus de endereços até ele, já que irá necessitar de A2 a A15 (neste momento tem de A2 a A10).
