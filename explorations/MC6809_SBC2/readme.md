@@ -16,3 +16,24 @@ Reparei que tinha desligado a GND da ROM, mas no entanto a ROM funcionava. Talve
 
 O 74LS00 foi removido. Tudo a funcionar. Chamei-lhe SBC2a (versão temporária, no fim será o SBC2)
 O proximo passo será remover o 74LS11, cujas saidas vão ser fornecidas pelo GAL2 (depois de reconfigurado), e melhorar a disposição dos fios que levam o bus de endereços até ele, já que irá necessitar de A2 a A15 (neste momento tem de A2 a A10).
+
+O 74LS11 foi removido, e já troquei o IC da RAM de 32K por um de 64K (W24512), é compativel com os pinos, e basta acrescentar o A15 e deslocar a alimentação. Para podermos usar dois ICs de 32K teremos que adicionar um sinal de saida RAMHIGH_CS ao GAL1 e reformular como é que o RAM_CS é activado, tendo em conta que serão dois ICs de 32K. Como eu tinha um de 64K disponivel, não foi necessário. Talvez um dia faça essa verssão.
+
+Portanto o MC6809_SBC2 está pronto, e esteve num teste de 24H sempre a funcionar.
+
+O memory map que quero é o seguinte:  
+0000-DFFF : 56K RAM  
+E000-F7FF : 6K VRAM/RAM (VRAM paged in/out)  
+F800-F801 : MC68B50 (2 bytes)  
+F802-F802 : PAGE_CTL (1 byte)  
+F803-F803 : FREE (1 byte)  
+F804-FFFF : 2K ROM (ASSIST09) (RAM paged in/out)  
+
+
+Pelo que percebi está de acordo com os requisitos de RAM do flex.  
+0000-2FFF : 12K RAM (Flex utils)  
+C000-DFFF : 8K RAM (Flex sys)  
+
+A porta serie é 57600 baud, 8N1.
+
+E está preparado para ser expandido com video, e eventualmente teclado e um RTC.

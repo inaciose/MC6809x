@@ -1,0 +1,37 @@
+#$ TOOL CUPL
+# Berkeley PLA format generated using CUPL(WM) 5.0a
+# Serial#  60008009
+# Created  Mon Aug 11 05:07:55 2025
+#
+#    Name        comreg
+#    Partno      AtmelCPLD
+#    Revision    01
+#    Date        12/20/99
+#    Designer    Atmel_D
+#    Company     Atmel
+#    Assembly    None
+#    Location    None
+#
+#$ TITLE  comreg
+#$ PROPERTY Atmel JTAG = ON
+#$ PROPERTY Atmel LOW_POWER = ON
+#$ MODULE  comreg
+#$ JEDECFILE  comreg
+#$ DEVICE  f1508plcc84
+#$ PINS   3 CLK+:2 O0+:12 O1+:11 
+#$ NODES  2 Q0+ Q1+ 
+.i 3
+.o 10
+.type f
+.ilb  CLK Q0.Q Q1.Q 
+.ob   O0 O1 Q0.REG Q0.AR Q0.CE Q0.C Q1.REG Q1.AR Q1.CE Q1.C 
+.phase 1111111111
+.p 7
+-00 1000000000
+-01 0100000000
+-0- 0010000000
+--- 0000100000
+1-- 0000010001
+-10 0000001000
+-1- 0000000010
+.e

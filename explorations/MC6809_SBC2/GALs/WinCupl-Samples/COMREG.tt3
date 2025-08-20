@@ -1,0 +1,18 @@
+#$ TOOL CUPL Atmel 1508 1.8.7.8
+#$ MODULE COMREG
+#$ JEDECFILE COMREG
+#$ PINS 3 O0:12 O1:11 CLK:2 
+#$ NODES 2 Q0:612 Q1:615 
+.type fr
+.i 3
+.o 7
+.ilb CLK Q1.Q Q0.Q
+.ob O0 O1 Q0.D Q0.C Q1.D Q1.C Q1.CE
+.p 6
+-10	~1~~~~~
+--0	~~1~~~~
+-00	1~~~~~~
+-01	~~~~1~~
+1--	~~~1~1~
+--1	~~~~~~1
+.end

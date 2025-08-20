@@ -1,0 +1,44 @@
+%SIGNAL
+PIN   2 =  CLK 
+PIN  12 =  O0 
+PIN  11 =  O1 
+PIN   0 =  Q0 
+PIN   0 =  Q1 
+%END
+
+%FIELD
+FIELD Q = Q1,Q0
+%END
+
+%EQUATION
+O0 =>
+    !Q0 & !Q1
+
+O1 =>
+    !Q0 & Q1
+
+Q0.d  =>
+    !Q0
+
+Q0.ar  =>
+    0 
+
+Q0.ce  =>
+    1 
+
+Q0.ck  =>
+    CLK
+
+Q1.d  =>
+    Q0 & !Q1
+
+Q1.ar  =>
+    0 
+
+Q1.ce  =>
+    Q0
+
+Q1.ck  =>
+    CLK
+
+%END

@@ -66,3 +66,8 @@ Consumo: 21/22 mA (com o GAL22V10D e o 74LS10 adicionados).
 #6 Reformulei as equações do GAL1, pois estavam erradas, e tive que usar outro, o GAL2, para ter um OR(A2 a A10). Desta vez funcionou e pude retirar o 74LS00, que fornecia os sinais ROM_CS, Write e Read. Assim como ligar o CS0 e o CS1 do MC68B50 a VCC, e o CS2 ao GAL1. Ou seja o mapa de memória ficou como acima, mas ainda sem o page. A ROM passou a ser a ASTF800, que apenas tem o assis09, com o inicio empurado 4 byes para cima (tive que passar o hello para AST9, em vez de ASSIST09, para ganhar os bytes).
 Depois de todas estas mudanças ficou a funcionar. Chamei-lhe SBC2a (versão temporária, no fim será o SBC2)
 O proximo passo será remover o 74LS11, cujas saidas vão ser fornecidas pelo GAL2 (depois de reconfigurado), e melhorar a disposição dos fios que levam o bus de endereços até ele, já que irá necessitar de A2 a A15 (neste momento tem de A2 a A10).
+
+#7 O 74LS11 foi removido, sendo a sua funcionalidade (1 and triplo completo, e um and triplo com dois inputs) passada para o GALv2.
+
+#8 Foi trocada a memória de 32k por uma de 64K (se usarmos 2 memorias de 32k, teremos que adicionar um sinal de saida RAMHIGH_CS ao GAL1 e reformular como é que o RAM_CS é activado, tendo em conta que serão dois ICs de 32K. 
+Funcionou, pelo que neste momento o SBC2 tem 56K RAM, 2K rom (com os seus primeiros 4 bytes para periféricos), e 6K de espaço reservado para a memoria de video que ainda não foi implementada. Mas por si só já é um SBC diferene do Searl Grant.
