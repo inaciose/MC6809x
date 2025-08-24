@@ -1,0 +1,39 @@
+Name     M92G2V2 ;
+PartNo   00 ;
+Date     8/12/2025 ;
+Revision 01 ;
+Designer sergio ;
+Company  none ;
+Assembly None ;
+Location  ;
+Device   g22v10 ;
+
+/* *************** INPUT PINS *********************/
+PIN 2    =  A15;
+PIN 3    =  A14;
+PIN 4    =  A13;
+PIN 5    =  A12;
+PIN 6    =  A11;
+PIN 7    =  A10;
+PIN 8    =  A9;
+PIN 9    =  A8;
+PIN 10   =  A7;
+PIN 11   =  A6;
+/* PIN 12	= GND */
+PIN 13   =  A5;
+PIN 14   =  A4;
+PIN 15   =  A3; 
+PIN 16   =  A2; 
+
+/* *************** OUTPUT PINS *********************/
+PIN 21  = A210; 
+PIN 22  = A112;
+PIN 23  = A345;
+/* *************** EQUATIONS   *********************/
+A210 = A10 # A9 # A8 # A7 # A6 # A5 # A4 # A3 # A2 ;
+A112 = A11 & A12;
+A345 = A13 & A14 & A15;
+
+
+
+
