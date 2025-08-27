@@ -1,0 +1,51 @@
+0001 0100                            ORG   $0100          ; endereço inicial do programa (ajusta conforme necessário)
+0002                         
+0003                         ;-----------------------------------
+0004                         ; Programa principal
+0005                         ;-----------------------------------
+0006 0100 8e e0 00           START   LDX   #$E000         ; X aponta para início da RAM
+0007 0103 10 8e 18 00                LDY   #$1800         ; número de bytes = F7FF - E000 + 1 = 0x1800
+0008                         
+0009 0107 6f 80              CLEAR0  CLR   ,X+            ; escreve 0x00
+0010 0109 31 3f                      LEAY  -1,Y
+0011 010b 26 fa                      BNE   CLEAR0
+0012                         
+0013 010d c6 02                      LDB   #2             ; espera 2 segundos
+0014 010f bd 01 28                   JSR   DELAY
+0015                         
+0016 0112 8e e0 00                   LDX   #$E000
+0017 0115 10 8e 18 00                LDY   #$1800
+0018                         
+0019 0119 86 ff              FILLFF  LDA  #$FF
+0020 011b a7 80                      STA   ,X+
+0021 011d 31 3f                      LEAY  -1,Y
+0022 011f 26 f8                      BNE   FILLFF
+0023                         
+0024 0121 c6 02                      LDB   #2             ; espera 2 segundos
+0025 0123 bd 01 28                   JSR   DELAY
+0026                         
+0027 0126 20 d8                      BRA   START          ; repete para sempre
+0028                         
+0029                         
+0030                         ;-----------------------------------
+0031                         ; Rotina de atraso parametrizada
+0032                         ; Entrada: B = nº de segundos a esperar
+0033                         ;-----------------------------------
+0034 0128 34 36              DELAY   PSHS  A,B,X,Y        ; guarda registos
+0035 012a 8e 01 f4           NEXTSEC LDX   #500           ; ≈1 segundo a 1 MHz
+0036                                                      ; Ajustar conforme clock:
+0037                                                      ;   1 MHz → 500
+0038                                                      ;   2 MHz → 1000
+0039                                                      ;   4 MHz → 2000
+0040                                                      ; Fórmula: 500 × (Clock em MHz)
+0041                         
+0042 012d 10 8e 00 ff        DLY1    LDY   #255
+0043 0131 31 3f              DLY2    LEAY  -1,Y
+0044 0133 26 fc                      BNE   DLY2
+0045 0135 30 1f                      LEAX  -1,X
+0046 0137 26 f4                      BNE   DLY1
+0047                         
+0048 0139 5a                         DECB                 ; menos 1 segundo
+0049 013a 26 ee                      BNE   NEXTSEC
+0050                         
+0051 013c 35 b6                      PULS  A,B,X,Y,PC     ; restaura registos e retorna

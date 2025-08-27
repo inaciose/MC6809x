@@ -1,107 +1,51 @@
-        ORG $0100
+        ORG   $0100          ; endereço inicial do programa (ajusta conforme necessário)
 
-;------------------------------------------------------
-; Variáveis para o endereço da VRAM
-;------------------------------------------------------
-RAM_H   RMB 1      ; parte alta do endereço
-RAM_L   RMB 1      ; parte baixa do endereço
-COUNT_H RMB 1      ; contador alto
-COUNT_L RMB 1      ; contador baixo
+;-----------------------------------
+; Programa principal
+;-----------------------------------
+START   LDX   #$E000         ; X aponta para início da RAM
+        LDY   #$1800         ; número de bytes = F7FF - E000 + 1 = 0x1800
 
-;------------------------------------------------------
-; Inicialização
-;------------------------------------------------------
-START:
-        LDAA #$E0
-        STAA RAM_H
-        LDAA #$00
-        STAA RAM_L
+CLEAR0  CLR   ,X+            ; escreve 0x00
+        LEAY  -1,Y
+        BNE   CLEAR0
 
-        LDAA #$18        ; contador de bytes = 0x1800
-        STAA COUNT_H
-        LDAA #$00
-        STAA COUNT_L
+        LDB   #2             ; espera 2 segundos
+        JSR   DELAY
 
-;------------------------------------------------------
-; Preencher com 0x00
-CLEAR0:
-        LDAA #0
-        JSR STORE_BYTE
+        LDX   #$E000
+        LDY   #$1800
 
-        JSR DEC_COUNT
-        LDAA COUNT_H
-        ORAA COUNT_L
-        BNE CLEAR0
+FILLFF  LDA  #$FF
+        STA   ,X+
+        LEAY  -1,Y
+        BNE   FILLFF
 
-        LDB #2
-        JSR DELAY
+        LDB   #2             ; espera 2 segundos
+        JSR   DELAY
 
-;------------------------------------------------------
-; Reinicia endereço e contador
-        LDAA #$E0
-        STAA RAM_H
-        LDAA #$00
-        STAA RAM_L
-
-        LDAA #$18
-        STAA COUNT_H
-        LDAA #$00
-        STAA COUNT_L
-
-;------------------------------------------------------
-; Preencher com 0xFF
-FILLFF:
-        LDAA #$FF
-        JSR STORE_BYTE
-
-        JSR DEC_COUNT
-        LDAA COUNT_H
-        ORAA COUNT_L
-        BNE FILLFF
-
-        LDB #2
-        JSR DELAY
-
-        BRA START
-
-;------------------------------------------------------
-; Rotina para armazenar um byte no endereço (RAM_H,RAM_L)
-;------------------------------------------------------
-STORE_BYTE:
-        ; AS9 não aceita indireto real, normalmente é necessário uma rotina de ponteiro.
-        ; Para efeito de exemplo, supõe-se que o byte é escrito corretamente.
-        RTS
-
-;------------------------------------------------------
-; Rotina decrementa contador 16-bit
-;------------------------------------------------------
-DEC_COUNT:
-        LDAA COUNT_L
-        SUBA #1
-        STAA COUNT_L
-        BNE DC_END
-        LDAA COUNT_H
-        SUBA #1
-        STAA COUNT_H
-DC_END:
-        RTS
-
-;------------------------------------------------------
-; Delay simples (B = segundos)
-;------------------------------------------------------
-DELAY:
-        LDX #500        ; ajuste conforme clock
-DLY_LOOP:
-        LDY #255
-DLY_INNER:
-        DEY
-        BNE DLY_INNER
-        DEX
-        BNE DLY_LOOP
-
-        DECB
-        BNE DELAY
-
-        RTS
+        BRA   START          ; repete para sempre
 
 
+;-----------------------------------
+; Rotina de atraso parametrizada
+; Entrada: B = nº de segundos a esperar
+;-----------------------------------
+DELAY   PSHS  A,B,X,Y        ; guarda registos
+NEXTSEC LDX   #500           ; ≈1 segundo a 1 MHz
+                             ; Ajustar conforme clock:
+                             ;   1 MHz → 500
+                             ;   2 MHz → 1000
+                             ;   4 MHz → 2000
+                             ; Fórmula: 500 × (Clock em MHz)
+
+DLY1    LDY   #255
+DLY2    LEAY  -1,Y
+        BNE   DLY2
+        LEAX  -1,X
+        BNE   DLY1
+
+        DECB                 ; menos 1 segundo
+        BNE   NEXTSEC
+
+        PULS  A,B,X,Y,PC     ; restaura registos e retorna
