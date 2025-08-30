@@ -131,3 +131,10 @@ Total 64K ram with ROM page out, may be copied to ram at begin
 
 Tentar como o hackaday 6809-sbc (4). No boot as escritas na area da ROM vão para a memoria RAM, e as leituras para a ROM. Se se copiar o conteudo da ROM para a RAM, depois pode se fazer o page out da ROM, caso seja necessário, e voltar a fazer o page in quando necessário outra vez.  
 
+# More
+RetroBrew Computers Forum  
+https://www.retrobrewcomputers.org/forum/index.php?t=msg&goto=1330&  
+
+https://jbevren.wordpress.com/2018/09/22/designing-a-6809-sbc/  
+
+https://www.roug.org/retrocomputing/os/os9  
