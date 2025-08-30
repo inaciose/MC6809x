@@ -1,0 +1,55 @@
+Name     M92G1V3 ;
+PartNo   00 ;
+Date     8/12/2025 ;
+Revision 01 ;
+Designer sergio ;
+Company  none ;
+Assembly None ;
+Location  ;
+Device   g22v10 ;
+
+/* input pins */
+PIN 1   = CLK;
+PIN 2   = A345; /* AND(A13-A15) */
+PIN 3   = A112; /* AND(A11-A12)) */
+PIN 4   = A210; /* OR(A2-A10)), 0 if all zeros */
+PIN 5   = A1;
+PIN 6   = A0;
+PIN 7   = E;
+PIN 8   = RW;
+PIN 9   = M47;
+PIN 10   = D2;
+PIN 11   = D1;
+/*PIN 12  = GND;*/
+PIN 13  = D0; 
+
+/* output pins */
+PIN 14  = NC; /* not connected, I/O/Q */
+PIN 15  = OT_CS;
+PIN 16  = PR_CS;
+PIN 17  = M50_CS;
+PIN 18  = RAM_OE;
+PIN 19  = RAM_WE;
+PIN 20  = VRAM_CS;
+PIN 21  = RAM_CS;
+PIN 22  = ROM_OE;
+PIN 23  = ROM_CS;
+/*PIN 24  = VCC;*/
+
+/* logic definitions, common equations */
+SF8XX = A345 & A112;
+SIO = SF8XX & !A210;
+
+/* logic definitions, final equations */
+ROM_CS  = !(SF8XX & A210); 
+ROM_OE  = !(RW & E);       /* falta considerar o page in/out */
+RAM_CS  = A345;
+VRAM_CS = !(A345 & !A112); /* falta considerar o page in/out */
+RAM_WE  = !(!RW & E);
+RAM_OE  = !(RW & E);       /* falta considerar o page in/out */
+M50_CS  = !(SIO & !A1) ;
+PR_CS   = !(SIO & A1 & !A0) ;
+OT_CS   = !(SIO & A1 & A0) ;
+
+
+
